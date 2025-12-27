@@ -8,8 +8,10 @@ WORKDIR /app
 # but for simple ts builds it's usually fine)
 # RUN apt-get update && apt-get install -y git
 
-# Disable pnpm trust policy to prevent ERR_PNPM_TRUST_DOWNGRADE
-ENV PNPM_CONFIG_TRUST_POLICY=none
+# Disable pnpm trust policy and set CI mode to handle non-TTY environments
+ENV PNPM_CONFIG_TRUST_POLICY=none \
+    PNPM_CONFIG_VERIFY_STORE_INTEGRITY=false \
+    CI=true
 
 # Copy the entire services directory
 COPY . .
@@ -19,7 +21,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
 # Use pnpm deploy to create a standalone production directory
-RUN pnpm --filter indexer --prod deploy /app/deployed
+RUN pnpm --filter indexer --prod deploy --legacy --config.trust-policy=none /app/deployed
 
 # Runtime stage
 FROM node:22-slim
