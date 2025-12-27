@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "tsup src/index.ts",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node22 --outfile=dist/index.js",
     "test": "bun test"
   },
   "dependencies": {

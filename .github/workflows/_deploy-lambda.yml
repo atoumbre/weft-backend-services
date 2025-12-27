@@ -76,6 +76,10 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      - name: Build Workspace
+        run: pnpm run build
+        working-directory: .
+
       - name: Bundle
         run: pnpm run bundle
         working-directory: ${{ inputs.service-path }}
