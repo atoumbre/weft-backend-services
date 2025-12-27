@@ -21,7 +21,14 @@ jobs:
 
   typo-check:
     uses: ./.github/workflows/_typo-check.yml
+    permissions:
+      contents: read
+      pull-requests: read
 
   tests-services:
     uses: ./.github/workflows/_run-tests.yml
+    permissions:
+      contents: read
+      pull-requests: read
+      
 
