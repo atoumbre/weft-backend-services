@@ -29,6 +29,8 @@ async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
     return
   }
 
+  //
+
   const runId = typeof body.runId === 'string' ? body.runId : undefined
   const rawIds = Array.isArray(body.cdpIds) ? body.cdpIds : (body.cdpId ? [body.cdpId] : [])
   const ids = rawIds.filter((id: any): id is string => typeof id === 'string' && id.length > 0)
