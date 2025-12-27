@@ -4,6 +4,8 @@ import { buildManifest, executePriceUpdate } from './price-service'
 
 const logger = createLogger({ service: 'oracle-updater' })
 
+//
+
 function requireEnv(name: string): string {
   const value = process.env[name]
   if (!value)

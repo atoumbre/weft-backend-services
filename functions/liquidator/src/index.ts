@@ -30,6 +30,7 @@ async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
   }
 
   //
+  //
 
   const runId = typeof body.runId === 'string' ? body.runId : undefined
   const rawIds = Array.isArray(body.cdpIds) ? body.cdpIds : (body.cdpId ? [body.cdpId] : [])
