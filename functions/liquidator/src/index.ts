@@ -1,5 +1,4 @@
 import type { SQSHandler, SQSRecord } from 'aws-lambda'
-import { liquidateCdp } from '@local-packages/cdp-liquidator'
 import { createLogger } from '@local-packages/common-utils'
 
 // Initialize logger outside the handler to reuse it across warm invocations
@@ -54,7 +53,9 @@ async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
   // Execute liquidations sequentially (or parallel if safe) for this message
   for (const id of ids) {
     try {
-      await liquidateCdp(id, localLogger)
+      // await liquidateCdp(id, localLogger)
+
+      localLogger.info(`Liquidating CDP ${id}`)
     }
     catch (e) {
       failures.push(id)

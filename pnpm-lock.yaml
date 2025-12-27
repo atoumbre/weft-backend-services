@@ -33,9 +33,6 @@ importers:
       '@aws-sdk/client-sqs':
         specifier: ^3.954.0
         version: 3.958.0
-      '@local-packages/cdp-liquidator':
-        specifier: workspace:*
-        version: link:../../packages/cdp-liquidator
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
@@ -73,9 +70,6 @@ importers:
       '@aws-sdk/client-sqs':
         specifier: ^3.954.0
         version: 3.958.0
-      '@local-packages/cdp-liquidator':
-        specifier: workspace:*
-        version: link:../../packages/cdp-liquidator
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
@@ -113,9 +107,6 @@ importers:
       '@aws-sdk/client-sqs':
         specifier: ^3.450.0
         version: 3.958.0
-      '@local-packages/cdp-liquidator':
-        specifier: workspace:*
-        version: link:../../packages/cdp-liquidator
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
@@ -150,9 +141,6 @@ importers:
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
-      '@local-packages/price-updater':
-        specifier: workspace:*
-        version: link:../../packages/price-updater
       pino:
         specifier: ^10.1.0
         version: 10.1.0
@@ -173,25 +161,6 @@ importers:
         specifier: ^4.0.16
         version: 4.0.16(@types/node@20.19.27)(yaml@2.8.2)
 
-  packages/cdp-liquidator:
-    dependencies:
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../common-utils
-      '@weft-finance/ledger-state':
-        specifier: ^0.0.16
-        version: 0.0.16
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-    devDependencies:
-      '@types/node':
-        specifier: ^25.0.3
-        version: 25.0.3
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-
   packages/common-utils:
     dependencies:
       pino:
@@ -200,19 +169,6 @@ importers:
       tslog:
         specifier: ^4.10.2
         version: 4.10.2
-    devDependencies:
-      '@types/node':
-        specifier: ^25.0.3
-        version: 25.0.3
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-
-  packages/price-updater:
-    dependencies:
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../common-utils
     devDependencies:
       '@types/node':
         specifier: ^25.0.3
