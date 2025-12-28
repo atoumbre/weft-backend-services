@@ -1,5 +1,5 @@
 import type { SQSHandler, SQSRecord } from 'aws-lambda'
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger, getSSMParameter, requireEnv } from '@local-packages/common-utils'
 
 // Initialize logger outside the handler to reuse it across warm invocations
 const logger = createLogger({ service: 'liquidator-lambda' })
@@ -82,6 +82,27 @@ async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
 }
 
 export const handler: SQSHandler = async (event) => {
+  const seedPhraseParamPath = requireEnv('SEED_PHRASE_PARAM')
+
+  if (seedPhraseParamPath) {
+    try {
+      const seedPhrase = await getSSMParameter(seedPhraseParamPath)
+      logger.info({
+        event: 'liquidator.ssm.seed_phrase_retrieved',
+        path: seedPhraseParamPath,
+        length: seedPhrase.length,
+      })
+    }
+    catch (error) {
+      logger.error({
+        event: 'liquidator.ssm.seed_phrase_failed',
+        path: seedPhraseParamPath,
+        err: error,
+      })
+      // We might want to throw here if this is critical
+    }
+  }
+
   const batchItemFailures: { itemIdentifier: string }[] = []
 
   // Process all records in the batch (Lambda batch size is usually 10)

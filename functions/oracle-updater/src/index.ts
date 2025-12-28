@@ -1,27 +1,36 @@
 import { randomUUID } from 'node:crypto'
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger, getSSMParameter, optionalEnv, requireEnv } from '@local-packages/common-utils'
 import { buildManifest, executePriceUpdate } from './price-service'
 
 const logger = createLogger({ service: 'oracle-updater' })
 
 //
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value)
-    throw new Error(`Missing required env var: ${name}`)
-  return value
-}
-
-function optionalEnv(name: string): string | undefined {
-  const value = process.env[name]
-  return value && value.trim().length > 0 ? value : undefined
-}
+//
 
 export async function handler() {
   const runId = randomUUID()
   const startedAt = Date.now()
   const localLogger = logger.child({ runId })
+
+  const seedPhraseParamPath = requireEnv('SEED_PHRASE_PARAM')
+  if (seedPhraseParamPath) {
+    try {
+      const seedPhrase = await getSSMParameter(seedPhraseParamPath)
+      localLogger.info({
+        event: 'oracle.ssm.seed_phrase_retrieved',
+        path: seedPhraseParamPath,
+        length: seedPhrase.length,
+      })
+    }
+    catch (error) {
+      localLogger.error({
+        event: 'oracle.ssm.seed_phrase_failed',
+        path: seedPhraseParamPath,
+        err: error,
+      })
+    }
+  }
 
   const accountAddress = requireEnv('ACCOUNT_ADDRESS')
   const badgeResourceAddress = requireEnv('BADGE_RESOURCE_ADDRESS')

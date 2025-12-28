@@ -2,19 +2,14 @@ import type { ILogger } from '@local-packages/common-utils'
 import process from 'node:process'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger, requireEnv } from '@local-packages/common-utils'
 import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
 import { checkRisk, fetchCdpDetails } from './indexer'
 
 const logger = createLogger({ service: 'indexer' })
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value)
-    throw new Error(`Missing required env var: ${name}`)
-  return value
-}
+//
 
 //
 

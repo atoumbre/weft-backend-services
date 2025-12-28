@@ -1,3 +1,4 @@
+import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
 import pino, { stdSerializers } from 'pino'
 import { Logger as TSLogger } from 'tslog'
 
@@ -96,3 +97,41 @@ function levelToNumber(level: string): number {
 
 // Default logger for simple use cases
 export const logger = createLogger({ service: 'default' })
+
+let ssmClient: SSMClient | undefined
+
+export async function getSSMParameter(name: string, options: { decrypt?: boolean, region?: string } = {}): Promise<string> {
+  if (!ssmClient) {
+    ssmClient = new SSMClient({ region: options.region || process.env.AWS_REGION || 'us-east-1' })
+  }
+
+  try {
+    const response = await ssmClient.send(new GetParameterCommand({
+      Name: name,
+      WithDecryption: options.decrypt ?? true,
+    }))
+
+    if (!response.Parameter?.Value) {
+      throw new Error(`SSM Parameter ${name} found but has no value`)
+    }
+
+    return response.Parameter.Value
+  }
+  catch (error) {
+    logger.error({ event: 'ssm.parameter.fetch_failed', name, err: error })
+    throw error
+  }
+}
+
+export function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`)
+  }
+  return value
+}
+
+export function optionalEnv(name: string): string | undefined {
+  const value = process.env[name]
+  return value && value.trim().length > 0 ? value : undefined
+}

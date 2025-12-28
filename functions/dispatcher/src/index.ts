@@ -2,7 +2,7 @@ import type { ILogger } from '@local-packages/common-utils'
 import type { CdpIdFetcher } from './fetcher'
 import { randomUUID } from 'node:crypto'
 import { SendMessageBatchCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger, requireEnv } from '@local-packages/common-utils'
 import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
 import { fetchAndBatchCdpIds } from './fetcher'
@@ -11,12 +11,7 @@ export type { CdpIdFetcher } from './fetcher'
 
 const logger = createLogger({ service: 'dispatcher' })
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value)
-    throw new Error(`Missing required env var: ${name}`)
-  return value
-}
+//
 
 //
 

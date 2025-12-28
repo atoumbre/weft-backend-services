@@ -18,6 +18,7 @@
     "build": "tsup src/index.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ssm": "^3.958.0",
     "pino": "^10.1.0",
     "tslog": "^4.10.2"
   },
