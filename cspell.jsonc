@@ -79,6 +79,9 @@
     "tslog",
     "tsup",
     "usdt",
-    "xusdc"
+    "xusdc",
+    "eddsa",
+    "secp",
+    "retryable"
   ]
 }
