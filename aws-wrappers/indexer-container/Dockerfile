@@ -6,7 +6,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
 
 # Copy workspace files
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.json ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.json tsup.config.ts ./
 COPY packages/common-utils ./packages/common-utils
 COPY services/indexer ./services/indexer
 COPY aws-wrappers/indexer-container ./aws-wrappers/indexer-container

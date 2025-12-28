@@ -15,6 +15,7 @@ import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
 
 //
+//
 
 // Lazy initialization for Lambda warm starts
 let cachedHandler: (() => Promise<{ statusCode: number, body: string }>) | undefined
