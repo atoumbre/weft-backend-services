@@ -5,8 +5,8 @@ import { createLogger, getSSMParameter, requireEnv } from '@local-packages/commo
 const logger = createLogger({ service: 'liquidator-lambda' })
 
 /**
- * Business logic to process ONE SQS message (which may contain multiple CDP IDs).
- * throws an error if any CDP in this message fails, triggering a retry for this message.
+ * Business logic to process ONE SQS message containing ONE CDP ID.
+ * Throws an error if liquidation fails, triggering a retry for this message.
  */
 async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
   const messageId = record.messageId
@@ -29,56 +29,38 @@ async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
     return
   }
 
-  //
-  //
-
   const runId = typeof body.runId === 'string' ? body.runId : undefined
-  const rawIds = Array.isArray(body.cdpIds) ? body.cdpIds : (body.cdpId ? [body.cdpId] : [])
-  const ids = rawIds.filter((id: any): id is string => typeof id === 'string' && id.length > 0)
+  const cdpId = typeof body.cdpId === 'string' ? body.cdpId : undefined
 
-  if (ids.length === 0)
+  if (!cdpId) {
+    baseLogger.error({
+      event: 'liquidator.message.missing_cdp_id',
+      messageId,
+    })
     return
+  }
 
   // Contextual logger for this specific message
-  const localLogger = baseLogger.child({ runId, messageId })
+  const localLogger = baseLogger.child({ runId, messageId, cdpId })
 
-  if (ids.length !== rawIds.length) {
-    localLogger.warn({
-      event: 'liquidator.message.invalid_cdp_ids',
-      invalidCount: rawIds.length - ids.length,
+  localLogger.info({ event: 'liquidator.message.received' })
+
+  try {
+    // TODO: Implement actual liquidation logic
+    // await liquidateCdp(cdpId, localLogger)
+    localLogger.info({ event: 'liquidator.cdp.liquidating', cdpId })
+
+    localLogger.info({ event: 'liquidator.message.completed' })
+  }
+  catch (e) {
+    localLogger.error({
+      event: 'liquidator.cdp.failed',
+      cdpId,
+      err: e,
     })
+    // Re-throw to mark this message as failed for partial batch failure reporting
+    throw e
   }
-
-  //
-
-  localLogger.info({ event: 'liquidator.message.received', cdpCount: ids.length })
-
-  const failures: string[] = []
-
-  // Execute liquidations sequentially (or parallel if safe) for this message
-  for (const id of ids) {
-    try {
-      // await liquidateCdp(id, localLogger)
-
-      localLogger.info(`Liquidating CDP ${id}`)
-    }
-    catch (e) {
-      failures.push(id)
-      localLogger.error({
-        event: 'liquidator.cdp.failed',
-        cdpId: id,
-        err: e,
-      })
-    }
-  }
-
-  // If ANY CDP in this message failed, we throw.
-  // This tells the Handler to mark this specific SQS Message as "Failed".
-  if (failures.length > 0) {
-    throw new Error(`Failed to liquidate ${failures.length} CDPs: ${failures.join(', ')}`)
-  }
-
-  localLogger.info({ event: 'liquidator.message.completed', cdpCount: ids.length })
 }
 
 export const handler: SQSHandler = async (event) => {

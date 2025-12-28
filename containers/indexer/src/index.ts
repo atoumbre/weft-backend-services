@@ -1,7 +1,7 @@
 import type { ILogger } from '@local-packages/common-utils'
 import process from 'node:process'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageBatchCommand, SQSClient } from '@aws-sdk/client-sqs'
 import { createLogger, requireEnv } from '@local-packages/common-utils'
 import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
@@ -109,14 +109,33 @@ export function createMessageProcessor(params: {
           atRiskCount: atRiskCdps.length,
         })
 
-        await params.sqs.send(new SendMessageCommand({
-          QueueUrl: params.liquidationQueueUrl,
-          MessageBody: JSON.stringify({
-            cdpIds: atRiskCdps.map((c: any) => c.id),
-            reason: 'High LTV',
-            runId,
-          }),
-        }))
+        // Send one CDP per message in batches of 10 (SQS max batch size)
+        const SQS_BATCH_LIMIT = 10
+        const atRiskIds = atRiskCdps.map((c: any) => c.id)
+
+        for (let i = 0; i < atRiskIds.length; i += SQS_BATCH_LIMIT) {
+          const batch = atRiskIds.slice(i, i + SQS_BATCH_LIMIT)
+          const entries = batch.map((cdpId: string, index: number) => ({
+            Id: `${i + index}`,
+            MessageBody: JSON.stringify({
+              cdpId,
+              reason: 'High LTV',
+              runId,
+            }),
+          }))
+
+          await params.sqs.send(new SendMessageBatchCommand({
+            QueueUrl: params.liquidationQueueUrl,
+            Entries: entries,
+          }))
+
+          localLogger.info({
+            event: 'indexer.liquidation.batch_enqueued',
+            batchIndex: Math.floor(i / SQS_BATCH_LIMIT) + 1,
+            batchCount: Math.ceil(atRiskIds.length / SQS_BATCH_LIMIT),
+            messageCount: entries.length,
+          })
+        }
 
         localLogger.info({
           event: 'indexer.liquidation.enqueued',
