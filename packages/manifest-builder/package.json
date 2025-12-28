@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "lint": "eslint . --fix",
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "typo-check": "cspell -c ../../cspell.json . --quiet"
   },

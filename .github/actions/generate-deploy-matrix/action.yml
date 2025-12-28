@@ -1,0 +1,107 @@
+name: Generate Deploy Matrix
+description: Generates deployment matrices based on changed files and filters.yml
+
+inputs:
+  base-ref:
+    description: Base ref for comparison (default HEAD~1 for push, base branch for PR)
+    required: false
+    default: ''
+
+outputs:
+  lambdas:
+    description: JSON array of lambda services to deploy
+    value: ${{ steps.matrix.outputs.lambdas }}
+  containers:
+    description: JSON array of container services to deploy
+    value: ${{ steps.matrix.outputs.containers }}
+  has-lambdas:
+    description: Whether there are lambdas to deploy
+    value: ${{ steps.matrix.outputs.has-lambdas }}
+  has-containers:
+    description: Whether there are containers to deploy
+    value: ${{ steps.matrix.outputs.has-containers }}
+
+runs:
+  using: composite
+  steps:
+    - name: Determine base ref
+      id: base
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.base-ref }}" ]; then
+          echo "ref=${{ inputs.base-ref }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "ref=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+        else
+          echo "ref=HEAD~1" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get changed files
+      id: changed
+      shell: bash
+      run: |
+        git fetch origin ${{ steps.base.outputs.ref }} --depth=1 2>/dev/null || true
+        CHANGED=$(git diff --name-only ${{ steps.base.outputs.ref }} HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+        echo "files<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGED" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Generate matrices
+      id: matrix
+      shell: bash
+      run: |
+        # Read filters config
+        FILTERS_FILE=".github/filters.yml"
+
+        # Get changed files
+        CHANGED_FILES="${{ steps.changed.outputs.files }}"
+
+        # Check if common paths changed (triggers all services)
+        COMMON_CHANGED=false
+        while IFS= read -r pattern; do
+          pattern=$(echo "$pattern" | sed 's/^- "//' | sed 's/"$//' | sed "s/^- '//" | sed "s/'$//")
+          if echo "$CHANGED_FILES" | grep -q "^packages/"; then
+            COMMON_CHANGED=true
+            break
+          fi
+        done < <(yq e '.common[]' "$FILTERS_FILE" 2>/dev/null || echo "")
+
+        # Initialize arrays
+        LAMBDAS='[]'
+        CONTAINERS='[]'
+
+        # Process each service
+        for service in $(yq e '.services | keys | .[]' "$FILTERS_FILE"); do
+          TYPE=$(yq e ".services.$service.type" "$FILTERS_FILE")
+          WRAPPER=$(yq e ".services.$service.wrapper" "$FILTERS_FILE")
+          FUNCTION=$(yq e ".services.$service.function // \"\"" "$FILTERS_FILE")
+
+          # Check if service paths changed
+          SERVICE_CHANGED=$COMMON_CHANGED
+          if [ "$SERVICE_CHANGED" = "false" ]; then
+            while IFS= read -r path; do
+              path=$(echo "$path" | sed 's/\*\*/.*/')
+              if echo "$CHANGED_FILES" | grep -qE "^${path%/\.\*}"; then
+                SERVICE_CHANGED=true
+                break
+              fi
+            done < <(yq e ".services.$service.paths[]" "$FILTERS_FILE")
+          fi
+
+          if [ "$SERVICE_CHANGED" = "true" ]; then
+            if [ "$TYPE" = "lambda" ]; then
+              LAMBDAS=$(echo "$LAMBDAS" | jq -c ". + [{\"name\": \"$service\", \"wrapper\": \"$WRAPPER\", \"function\": \"$FUNCTION\"}]")
+            elif [ "$TYPE" = "container" ]; then
+              CONTAINERS=$(echo "$CONTAINERS" | jq -c ". + [{\"name\": \"$service\", \"wrapper\": \"$WRAPPER\"}]")
+            fi
+          fi
+        done
+
+        echo "lambdas=$LAMBDAS" >> $GITHUB_OUTPUT
+        echo "containers=$CONTAINERS" >> $GITHUB_OUTPUT
+        echo "has-lambdas=$([ "$LAMBDAS" != "[]" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+        echo "has-containers=$([ "$CONTAINERS" != "[]" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+        echo "Generated matrices:"
+        echo "Lambdas: $LAMBDAS"
+        echo "Containers: $CONTAINERS"

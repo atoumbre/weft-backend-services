@@ -23,7 +23,7 @@ on:
       bun-version:
         required: false
         type: string
-        default: '1.2.13'
+        default: 1.2.13
         description: Bun version
       aws-region:
         required: false

@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsup",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "typo-check": "cspell -c ../../cspell.json . --quiet",

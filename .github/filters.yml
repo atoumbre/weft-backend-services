@@ -1,0 +1,36 @@
+# Common paths that trigger ALL services
+common:
+  - 'packages/**'
+
+# Service definitions with their paths and deployment type
+services:
+  dispatcher:
+    type: lambda
+    wrapper: dispatcher-lambda
+    function: dispatcher
+    paths:
+      - 'aws-wrappers/dispatcher-lambda/**'
+      - 'services/dispatcher/**'
+
+  indexer:
+    type: container
+    wrapper: indexer-container
+    paths:
+      - 'aws-wrappers/indexer-container/**'
+      - 'services/indexer/**'
+
+  liquidator:
+    type: lambda
+    wrapper: liquidator-lambda
+    function: liquidator
+    paths:
+      - 'aws-wrappers/liquidator-lambda/**'
+      - 'services/liquidator/**'
+
+  price-updater:
+    type: lambda
+    wrapper: price-updater-lambda
+    function: price-updater
+    paths:
+      - 'aws-wrappers/price-updater-lambda/**'
+      - 'services/price-updater/**'

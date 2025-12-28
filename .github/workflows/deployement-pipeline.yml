@@ -16,7 +16,7 @@ permissions:
 
 env:
   NODE_VERSION: '22'
-  BUN_VERSION: '1.2.13'
+  BUN_VERSION: 1.2.13
   AWS_REGION: us-east-1
 
 concurrency:
@@ -27,45 +27,27 @@ jobs:
   typo-check:
     uses: ./.github/workflows/_typo-check.yml
 
-  tests-services:
+  tests:
     uses: ./.github/workflows/_run-tests.yml
 
-  filter:
+  # Generate deployment matrices based on changed files
+  generate-matrix:
     runs-on: ubuntu-latest
     outputs:
-      dispatcher: ${{ steps.filter.outputs.dispatcher }}
-      indexer: ${{ steps.filter.outputs.indexer }}
-      liquidator: ${{ steps.filter.outputs.liquidator }}
-      price-updater: ${{ steps.filter.outputs.price-updater }}
+      lambdas: ${{ steps.matrix.outputs.lambdas }}
+      containers: ${{ steps.matrix.outputs.containers }}
+      has-lambdas: ${{ steps.matrix.outputs.has-lambdas }}
+      has-containers: ${{ steps.matrix.outputs.has-containers }}
+      environment: ${{ steps.env.outputs.name }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            dispatcher:
-              - 'aws-wrappers/dispatcher-lambda/**'
-              - 'services/dispatcher/**'
-              - 'packages/**'
-            indexer:
-              - 'aws-wrappers/indexer-container/**'
-              - 'services/indexer/**'
-              - 'packages/**'
-            liquidator:
-              - 'aws-wrappers/liquidator-lambda/**'
-              - 'services/liquidator/**'
-              - 'packages/**'
-            price-updater:
-              - 'aws-wrappers/price-updater-lambda/**'
-              - 'services/price-updater/**'
-              - 'packages/**'
+          fetch-depth: 2
 
-  set-env:
-    runs-on: ubuntu-latest
-    needs: [filter]
-    outputs:
-      name: ${{ steps.env.outputs.name }}
-    steps:
+      - name: Generate Deploy Matrix
+        id: matrix
+        uses: ./.github/actions/generate-deploy-matrix
+
       - name: Select Environment
         id: env
         run: |
@@ -85,54 +67,46 @@ jobs:
           fi
           echo "name=${env_name}" >> "$GITHUB_OUTPUT"
 
-  # Container builds
-  build-indexer:
-    needs: [filter, tests-services]
-    if: needs.filter.outputs.indexer == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
+  # Build containers using matrix
+  build-containers:
+    needs: [generate-matrix, tests]
+    if: needs.generate-matrix.outputs.has-containers == 'true' && (needs.tests.result == 'success' || needs.tests.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.generate-matrix.outputs.containers) }}
     uses: ./.github/workflows/_build-and-push-containers.yml
     with:
-      wrapper-name: indexer-container
+      wrapper-name: ${{ matrix.service.wrapper }}
       image-tag: ${{ github.sha }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
-  # Container deployments
-  deploy-indexer:
-    needs: [set-env, build-indexer]
-    if: always() && needs.build-indexer.result == 'success'
+  # Deploy containers using matrix
+  deploy-containers:
+    needs: [generate-matrix, build-containers]
+    if: always() && needs.build-containers.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.generate-matrix.outputs.containers) }}
     uses: ./.github/workflows/_deploy-service.yml
     secrets: inherit
     with:
-      service_name: weft-${{ needs.set-env.outputs.name }}-indexer
-      environment: ${{ needs.set-env.outputs.name }}
+      service_name: weft-${{ needs.generate-matrix.outputs.environment }}-${{ matrix.service.name }}
+      environment: ${{ needs.generate-matrix.outputs.environment }}
 
-  # Lambda deployments
-  deploy-dispatcher:
-    needs: [filter, set-env, tests-services]
-    if: needs.filter.outputs.dispatcher == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
+  # Deploy lambdas using matrix
+  deploy-lambdas:
+    needs: [generate-matrix, tests]
+    if: needs.generate-matrix.outputs.has-lambdas == 'true' && (needs.tests.result == 'success' || needs.tests.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.generate-matrix.outputs.lambdas) }}
     uses: ./.github/workflows/_deploy-lambda.yml
     secrets: inherit
     with:
-      wrapper-name: dispatcher-lambda
-      function-name: weft-${{ needs.set-env.outputs.name }}-dispatcher
-      environment: ${{ needs.set-env.outputs.name }}
-
-  deploy-liquidator:
-    needs: [filter, set-env, tests-services]
-    if: needs.filter.outputs.liquidator == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
-    uses: ./.github/workflows/_deploy-lambda.yml
-    secrets: inherit
-    with:
-      wrapper-name: liquidator-lambda
-      function-name: weft-${{ needs.set-env.outputs.name }}-liquidator
-      environment: ${{ needs.set-env.outputs.name }}
-
-  deploy-price-updater:
-    needs: [filter, set-env, tests-services]
-    if: needs.filter.outputs.price-updater == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
-    uses: ./.github/workflows/_deploy-lambda.yml
-    secrets: inherit
-    with:
-      wrapper-name: price-updater-lambda
-      function-name: weft-${{ needs.set-env.outputs.name }}-price-updater
-      environment: ${{ needs.set-env.outputs.name }}
+      wrapper-name: ${{ matrix.service.wrapper }}
+      function-name: weft-${{ needs.generate-matrix.outputs.environment }}-${{ matrix.service.function }}
+      environment: ${{ needs.generate-matrix.outputs.environment }}
