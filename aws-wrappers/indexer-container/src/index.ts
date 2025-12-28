@@ -8,6 +8,8 @@
  * 4. Runs the polling loop
  */
 
+//
+
 import type { QueueReceiver, QueueSender, StorageWriter } from '@local-service/indexer'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageBatchCommand, SQSClient } from '@aws-sdk/client-sqs'
