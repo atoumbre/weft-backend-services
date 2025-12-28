@@ -3,7 +3,7 @@
 import type { CollateralizeDebtPositionData } from '@weft-finance/ledger-state'
 import type { CdpDetailFetcher } from '../src/indexer'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
-import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageCommand } from '@aws-sdk/client-sqs'
+import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageBatchCommand } from '@aws-sdk/client-sqs'
 import { expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
 import { createIndexerWorker, createMessageProcessor } from '../src'
@@ -103,7 +103,7 @@ test('message processor saves CDPs to S3 and does not enqueue liquidation when n
   expect(putCmd.input.ContentType).toBe('application/json')
   expect(putCmd.input.Body).toBe(JSON.stringify(cdps))
 
-  const sendMessageCalls = sqsCalls.filter((c): c is SendMessageCommand => c instanceof SendMessageCommand)
+  const sendMessageCalls = sqsCalls.filter((c): c is SendMessageBatchCommand => c instanceof SendMessageBatchCommand)
   expect(sendMessageCalls.length).toBe(0)
 })
 
@@ -130,13 +130,19 @@ test('message processor enqueues liquidation when there are at-risk CDPs', async
   await processMessage({ Body: JSON.stringify({ cdpIds: ['id1'] }) })
 
   expect(s3Calls.length).toBe(1)
-  const sendMessageCalls = sqsCalls.filter((c): c is SendMessageCommand => c instanceof SendMessageCommand)!
-  expect(sendMessageCalls.length).toBe(1)
-  expect(sendMessageCalls[0]!.input.QueueUrl).toBe('liq-queue')
+  const sendBatchCalls = sqsCalls.filter((c): c is SendMessageBatchCommand => c instanceof SendMessageBatchCommand)
+  expect(sendBatchCalls.length).toBe(1)
+  expect(sendBatchCalls[0]!.input.QueueUrl).toBe('liq-queue')
 
-  const payload = JSON.parse(sendMessageCalls[0]!.input.MessageBody!)
-  expect(payload.reason).toBe('High LTV')
-  expect(payload.cdpIds).toEqual(['risk', 'risk2'])
+  // Verify individual messages - one CDP per message
+  const entries = sendBatchCalls[0]!.input.Entries!
+  expect(entries.length).toBe(2) // 'risk' and 'risk2'
+
+  const payloads = entries.map(e => JSON.parse(e.MessageBody!))
+  expect(payloads[0].cdpId).toBe('risk')
+  expect(payloads[0].reason).toBe('High LTV')
+  expect(payloads[1].cdpId).toBe('risk2')
+  expect(payloads[1].reason).toBe('High LTV')
 })
 
 test('indexer worker runOnce deletes messages after processing', async () => {
