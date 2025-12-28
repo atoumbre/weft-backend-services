@@ -1,6 +1,7 @@
 import type { SQSHandler, SQSRecord } from 'aws-lambda'
 import { createLogger, getSSMParameter, requireEnv } from '@local-packages/common-utils'
 
+//
 // Initialize logger outside the handler to reuse it across warm invocations
 const logger = createLogger({ service: 'liquidator-lambda' })
 

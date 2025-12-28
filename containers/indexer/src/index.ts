@@ -10,7 +10,7 @@ import { checkRisk, fetchCdpDetails } from './indexer'
 const logger = createLogger({ service: 'indexer' })
 
 //
-
+//
 //
 //
 
