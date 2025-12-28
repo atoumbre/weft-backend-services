@@ -3,9 +3,12 @@ shellEmulator: true
 trustPolicy: no-downgrade
 
 packages:
+  - services/*
+  - wrappers/*
+  - packages/*
+  # Legacy directories - to be removed after migration verified
   - containers/*
   - functions/*
-  - packages/*
 onlyBuiltDependencies:
   - esbuild
   - secp256k1

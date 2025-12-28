@@ -83,7 +83,6 @@ jobs:
 
   # 4. Service Validation Bloc
 
-
   # 5. Service Artifacts Bloc (Containers)
   build-indexer:
     needs: [filter, tests-services]

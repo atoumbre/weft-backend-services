@@ -5,12 +5,12 @@ on:
     branches: [dev]
     paths-ignore:
       - '**.md'
-      - '.github/filters.yml'
+      - .github/filters.yml
   pull_request:
     branches: [main, stage]
     paths-ignore:
       - '**.md'
-      - '.github/filters.yml'
+      - .github/filters.yml
   workflow_dispatch:
 
 permissions:
@@ -28,5 +28,3 @@ jobs:
     uses: ./.github/workflows/_run-tests.yml
     permissions:
       contents: read
-      
-

@@ -1,5 +1,7 @@
-import {
+import type {
   ManifestBuilder,
+} from '@radixdlt/radix-engine-toolkit'
+import {
   address,
   array,
   bucket,
