@@ -136,15 +136,15 @@ jobs:
       function-name: weft-${{ needs.set-env.outputs.name }}-dispatcher
       environment: ${{ needs.set-env.outputs.name }}
 
-  deploy-oracle-updater:
-    needs: [filter, set-env, tests-services]
-    if: |
-      needs.filter.outputs.oracle_updater == 'true' &&
-      (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
-    uses: ./.github/workflows/_deploy-lambda.yml
-    secrets: inherit
-    with:
-      service-name: oracle-updater
-      service-path: functions/oracle-updater
-      function-name: weft-${{ needs.set-env.outputs.name }}-oracle-updater
-      environment: ${{ needs.set-env.outputs.name }}
+  # deploy-oracle-updater:
+  #   needs: [filter, set-env, tests-services]
+  #   if: |
+  #     needs.filter.outputs.oracle_updater == 'true' &&
+  #     (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
+  #   uses: ./.github/workflows/_deploy-lambda.yml
+  #   secrets: inherit
+  #   with:
+  #     service-name: oracle-updater
+  #     service-path: functions/oracle-updater
+  #     function-name: weft-${{ needs.set-env.outputs.name }}-oracle-updater
+  #     environment: ${{ needs.set-env.outputs.name }}
