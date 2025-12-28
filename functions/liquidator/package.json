@@ -12,6 +12,8 @@
     "@local-packages/common-utils": "workspace:*",
     "@radixdlt/babylon-gateway-api-sdk": "^1.0.0",
     "@weft-finance/ledger-state": "^0.0.16",
+    "@weft-finance/manifest-builder": "workspace:*",
+    "decimal.js": "^10.6.0",
     "pino": "^10.1.0"
   },
   "devDependencies": {

@@ -1,0 +1,27 @@
+{
+  "name": "@weft-finance/manifest-builder",
+  "type": "commonjs",
+  "version": "0.0.1",
+  "private": true,
+  "author": {
+    "name": "Radix Transaction manifest builder",
+    "description": "A light weight Radix Transaction manifest builder suitable for web browsers",
+    "email": "community@weft.finance"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint . --fix",
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typo-check": "cspell -c ../../cspell.json . --quiet"
+  },
+  "devDependencies": {
+    "decimal.js": "^10.6.0"
+  }
+}
