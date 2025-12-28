@@ -42,3 +42,4 @@ services/functions/oracle-updater/.trigger
 
 # Misc
 *.sh
+.turbo

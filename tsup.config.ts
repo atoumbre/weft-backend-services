@@ -6,7 +6,6 @@ export default defineConfig({
   ],
   splitting: false,
   sourcemap: false,
-  clean: true,
   minify: true,
   format: ['cjs', 'esm'], // AWS Lambda Node.js runtime primarily uses CommonJS (cjs)
   dts: true,

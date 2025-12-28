@@ -3,10 +3,10 @@
   "private": true,
   "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6",
   "scripts": {
-    "clean": "rm -rf packages/*/dist",
-    "build": "pnpm -r run build",
+    "clean": "rm -rf packages/*/dist services/*/dist aws-wrappers/*/dist",
+    "build": "turbo run build",
     "build:clean": "pnpm run clean && pnpm run build",
-    "test": "pnpm -r run test",
+    "test": "turbo run test",
     "lint": "eslint --fix ."
   },
   "dependencies": {
@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
-    "eslint": "^9.39.2"
+    "eslint": "^9.39.2",
+    "turbo": "^2.5.4"
   }
 }

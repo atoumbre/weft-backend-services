@@ -5,26 +5,27 @@ on:
     branches: [dev]
     paths-ignore:
       - '**.md'
-      - .github/filters.yml
   pull_request:
     branches: [main, stage]
     paths-ignore:
       - '**.md'
-      - .github/filters.yml
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
-
   typo-check:
     uses: ./.github/workflows/_typo-check.yml
-    permissions:
-      contents: read
 
-  tests-services:
-    uses: ./.github/workflows/_run-tests.yml
-    permissions:
-      contents: read
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build & Test
+        run: pnpm turbo run build test
