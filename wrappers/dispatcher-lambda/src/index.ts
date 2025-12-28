@@ -9,13 +9,15 @@
 
 import type { QueueBatchSender } from '@local-service/dispatcher'
 import { SendMessageBatchCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { requireEnv } from '@local-packages/common-utils'
+import { createSimpleEnvFactory } from '@local-packages/common-utils'
 import { createDispatcherHandler } from '@local-service/dispatcher'
 import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
 
 // Lazy initialization for Lambda warm starts
 let cachedHandler: (() => Promise<{ statusCode: number, body: string }>) | undefined
+
+const env = createSimpleEnvFactory()
 
 /**
  * Creates an SQS adapter implementing the QueueBatchSender interface.
@@ -52,11 +54,11 @@ function getHandler() {
 
   // Initialize AWS SDK clients
   const sqs = new SQSClient({})
-  const indexerQueueUrl = requireEnv('INDEXER_QUEUE_URL')
+  const indexerQueueUrl = env.require('INDEXER_QUEUE_URL')
 
   // Initialize Radix Gateway API client
   const gatewayApi = GatewayApiClient.initialize({
-    basePath: requireEnv('RADIX_GATEWAY_URL'),
+    basePath: env.require('RADIX_GATEWAY_URL'),
     applicationName: 'Weft Indexer Dispatcher',
   })
 
@@ -70,7 +72,8 @@ function getHandler() {
   cachedHandler = createDispatcherHandler({
     queueSender,
     fetcher,
-    indexerBatchSize: Number.parseInt(requireEnv('INDEXER_BATCH_SIZE'), 10),
+    indexerBatchSize: Number.parseInt(env.require('INDEXER_BATCH_SIZE'), 10),
+    env,
   })
 
   return cachedHandler

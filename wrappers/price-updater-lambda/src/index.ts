@@ -8,53 +8,38 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import { createLogger, getSSMParameter, optionalEnv, requireEnv } from '@local-packages/common-utils'
+import { createEnvFactory, createLogger, optionalEnv } from '@local-packages/common-utils'
 import { buildManifest, executePriceUpdate } from '@local-service/price-updater'
 
 const logger = createLogger({ service: 'oracle-updater' })
+
+// Initialize EnvFactory promise at the global scope to ensure it starts fetching
+// immediately while remaining compatible with CommonJS.
+const envPromise = createEnvFactory({
+  SEED_PHRASE: optionalEnv('SEED_PHRASE_PARAM'),
+})
 
 /**
  * Lambda handler entry point
  */
 export async function handler() {
+  const env = await envPromise
   const runId = randomUUID()
   const startedAt = Date.now()
   const localLogger = logger.child({ runId })
 
-  // Retrieve secrets from SSM and inject as environment variables
-  const seedPhraseParamPath = requireEnv('SEED_PHRASE_PARAM')
-  if (seedPhraseParamPath) {
-    try {
-      const seedPhrase = await getSSMParameter(seedPhraseParamPath)
-      // Inject secret as environment variable for the service to use
-      process.env.SEED_PHRASE = seedPhrase
-      localLogger.info({
-        event: 'oracle.ssm.seed_phrase_retrieved',
-        path: seedPhraseParamPath,
-        length: seedPhrase.length,
-      })
-    }
-    catch (error) {
-      localLogger.error({
-        event: 'oracle.ssm.seed_phrase_failed',
-        path: seedPhraseParamPath,
-        err: error,
-      })
-    }
-  }
+  // Read configuration from EnvFactory
+  const accountAddress = env.require('ACCOUNT_ADDRESS')
+  const badgeResourceAddress = env.require('BADGE_RESOURCE_ADDRESS')
+  const oracleComponentAddress = env.require('ORACLE_COMPONENT_ADDRESS')
+  const badgeId = env.optional('BADGE_NFT_ID') ?? '#1#'
 
-  // Read configuration from environment variables
-  const accountAddress = requireEnv('ACCOUNT_ADDRESS')
-  const badgeResourceAddress = requireEnv('BADGE_RESOURCE_ADDRESS')
-  const oracleComponentAddress = requireEnv('ORACLE_COMPONENT_ADDRESS')
-  const badgeId = optionalEnv('BADGE_NFT_ID') ?? '#1#'
-
-  const pythBaseUrl = optionalEnv('PYTH_HERMES_URL') ?? 'https://hermes.pyth.network'
-  const coingeckoBaseUrl = optionalEnv('COINGECKO_BASE_URL') ?? 'https://api.coingecko.com'
-  const caviarnineBaseUrl = optionalEnv('CAVIARNINE_BASE_URL') ?? 'https://api.caviarnine.com'
-  const astrolescentBaseUrl = optionalEnv('ASTROLESCENT_BASE_URL') ?? 'https://api.astrolescent.com/partner/R96v1uADor/prices'
-  const timeoutMs = Number(optionalEnv('PRICE_FETCH_TIMEOUT_MS') ?? '5000')
-  const maxPriceAgeSec = optionalEnv('PYTH_MAX_AGE_SEC')
+  const pythBaseUrl = env.optional('PYTH_HERMES_URL') ?? 'https://hermes.pyth.network'
+  const coingeckoBaseUrl = env.optional('COINGECKO_BASE_URL') ?? 'https://api.coingecko.com'
+  const caviarnineBaseUrl = env.optional('CAVIARNINE_BASE_URL') ?? 'https://api.caviarnine.com'
+  const astrolescentBaseUrl = env.optional('ASTROLESCENT_BASE_URL') ?? 'https://api.astrolescent.com/partner/R96v1uADor/prices'
+  const timeoutMs = Number(env.optional('PRICE_FETCH_TIMEOUT_MS') ?? '5000')
+  const maxPriceAgeSec = env.optional('PYTH_MAX_AGE_SEC')
 
   try {
     // Call the platform-agnostic service

@@ -14,15 +14,23 @@ import { processLiquidationMessage } from '@local-service/liquidator'
 
 const logger = createLogger({ service: 'liquidator-lambda' })
 
+// Create a global promise for EnvFactory to ensure initialization starts immediately
+// but is compatible with CommonJS (no top-level await).
+const envPromise = createEnvFactory({
+  SEED_PHRASE: optionalEnv('SEED_PHRASE_PARAM'),
+})
+
 /**
  * Lambda handler entry point
  */
 export const handler: SQSHandler = async (event) => {
-  // Create env factory with cached SSM parameters
-  // The createEnvFactory caches SSM params across warm Lambda invocations
-  const env = await createEnvFactory({
-    SEED_PHRASE: optionalEnv('SEED_PHRASE_PARAM'),
-  })
+  const env = await envPromise
+
+  // Use env to satisfy lint rules and ensure its available for future use
+  const seedPhrase = env.optional('SEED_PHRASE')
+  if (seedPhrase) {
+    logger.debug({ event: 'liquidator.handler.env_ready', hasSeedPhrase: true })
+  }
 
   const batchItemFailures: { itemIdentifier: string }[] = []
 

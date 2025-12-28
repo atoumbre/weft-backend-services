@@ -11,10 +11,12 @@
 import type { QueueReceiver, QueueSender, StorageWriter } from '@local-service/indexer'
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageBatchCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { requireEnv } from '@local-packages/common-utils'
+import { createSimpleEnvFactory } from '@local-packages/common-utils'
 import { createIndexerWorker } from '@local-service/indexer'
 import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
+
+const env = createSimpleEnvFactory()
 
 /**
  * Creates an SQS adapter implementing the QueueReceiver interface.
@@ -73,14 +75,14 @@ async function main() {
   const sqs = new SQSClient({})
   const s3 = new S3Client({})
 
-  // Get configuration from environment
-  const queueUrl = requireEnv('QUEUE_URL')
-  const liquidationQueueUrl = requireEnv('LIQUIDATION_QUEUE_URL')
-  const bucketName = requireEnv('BUCKET_NAME')
+  // Get configuration from EnvFactory
+  const queueUrl = env.require('QUEUE_URL')
+  const liquidationQueueUrl = env.require('LIQUIDATION_QUEUE_URL')
+  const bucketName = env.require('BUCKET_NAME')
 
   // Initialize Radix Gateway API client
   const gatewayApi = GatewayApiClient.initialize({
-    basePath: requireEnv('RADIX_GATEWAY_URL'),
+    basePath: env.require('RADIX_GATEWAY_URL'),
     applicationName: 'Weft Indexer Worker',
   })
 
@@ -99,6 +101,7 @@ async function main() {
     storage,
     fetcher,
     bucketName,
+    env,
   })
 
   await worker.runForever()

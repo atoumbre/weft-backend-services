@@ -27,7 +27,12 @@ test('dispatches IDs in chunk-sized messages', async () => {
 
   const ids = makeIds(25)
   const fetcher: CdpIdFetcher = {
-    getCdpIds: async () => ids.map(non_fungible_id => ({ non_fungible_id })),
+    getCdpIds: async () =>
+      ids.map(non_fungible_id => ({
+        non_fungible_id,
+        is_burned: false,
+        last_updated_at_state_version: 0,
+      })),
   }
 
   const handler = createDispatcherHandler({
@@ -63,7 +68,12 @@ test('sends multiple batches when there are >10 chunks', async () => {
 
   const ids = makeIds(105) // 21 chunks of 5
   const fetcher: CdpIdFetcher = {
-    getCdpIds: async () => ids.map(non_fungible_id => ({ non_fungible_id })),
+    getCdpIds: async () =>
+      ids.map(non_fungible_id => ({
+        non_fungible_id,
+        is_burned: false,
+        last_updated_at_state_version: 0,
+      })),
   }
 
   const handler = createDispatcherHandler({
@@ -131,7 +141,12 @@ test('retries failed messages', async () => {
 
   const ids = makeIds(5)
   const fetcher: CdpIdFetcher = {
-    getCdpIds: async () => ids.map(non_fungible_id => ({ non_fungible_id })),
+    getCdpIds: async () =>
+      ids.map(non_fungible_id => ({
+        non_fungible_id,
+        is_burned: false,
+        last_updated_at_state_version: 0,
+      })),
   }
 
   const handler = createDispatcherHandler({
