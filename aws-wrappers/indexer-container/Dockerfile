@@ -9,7 +9,7 @@ RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/common-utils ./packages/common-utils
 COPY services/indexer ./services/indexer
-COPY wrappers/indexer-container ./wrappers/indexer-container
+COPY aws-wrappers/indexer-container ./aws-wrappers/indexer-container
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -25,7 +25,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Copy built files
-COPY --from=builder /app/wrappers/indexer-container/dist ./dist
+COPY --from=builder /app/aws-wrappers/indexer-container/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
 # Run the worker

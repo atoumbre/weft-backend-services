@@ -4,11 +4,9 @@ trustPolicy: no-downgrade
 
 packages:
   - services/*
-  - wrappers/*
+  - aws-wrappers/*
   - packages/*
-  # Legacy directories - to be removed after migration verified
-  - containers/*
-  - functions/*
+
 onlyBuiltDependencies:
   - esbuild
   - secp256k1

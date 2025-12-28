@@ -22,11 +22,39 @@ importers:
         specifier: ^9.39.2
         version: 9.39.2
 
-  containers/indexer:
+  aws-wrappers/dispatcher-lambda:
     dependencies:
-      '@aws-sdk/client-cloudwatch':
+      '@aws-sdk/client-sqs':
         specifier: ^3.954.0
         version: 3.958.0
+      '@local-packages/common-utils':
+        specifier: workspace:*
+        version: link:../../packages/common-utils
+      '@local-service/dispatcher':
+        specifier: workspace:*
+        version: link:../../services/dispatcher
+      '@radixdlt/babylon-gateway-api-sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@weft-finance/ledger-state':
+        specifier: ^0.0.16
+        version: 0.0.16
+    devDependencies:
+      '@types/aws-lambda':
+        specifier: ^8.10.159
+        version: 8.10.159
+      '@types/node':
+        specifier: ^20.19.27
+        version: 20.19.27
+      esbuild:
+        specifier: ^0.27.2
+        version: 0.27.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  aws-wrappers/indexer-container:
+    dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.954.0
         version: 3.958.0
@@ -36,25 +64,19 @@ importers:
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
+      '@local-service/indexer':
+        specifier: workspace:*
+        version: link:../../services/indexer
       '@radixdlt/babylon-gateway-api-sdk':
         specifier: ^1.10.1
         version: 1.10.1
       '@weft-finance/ledger-state':
         specifier: ^0.0.16
         version: 0.0.16
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-      pino:
-        specifier: ^10.1.0
-        version: 10.1.0
     devDependencies:
       '@types/node':
         specifier: ^20.19.27
         version: 20.19.27
-      bun-types:
-        specifier: ^1.3.5
-        version: 1.3.5
       esbuild:
         specifier: ^0.24.0
         version: 0.24.2
@@ -62,26 +84,14 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  functions/dispatcher:
+  aws-wrappers/liquidator-lambda:
     dependencies:
-      '@aws-sdk/client-cloudwatch':
-        specifier: ^3.954.0
-        version: 3.958.0
-      '@aws-sdk/client-sqs':
-        specifier: ^3.954.0
-        version: 3.958.0
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
-      '@radixdlt/babylon-gateway-api-sdk':
-        specifier: ^1.10.1
-        version: 1.10.1
-      '@weft-finance/ledger-state':
-        specifier: ^0.0.16
-        version: 0.0.16
-      pino:
-        specifier: ^10.1.0
-        version: 10.1.0
+      '@local-service/liquidator':
+        specifier: workspace:*
+        version: link:../../services/liquidator
     devDependencies:
       '@types/aws-lambda':
         specifier: ^8.10.159
@@ -89,9 +99,6 @@ importers:
       '@types/node':
         specifier: ^20.19.27
         version: 20.19.27
-      bun-types:
-        specifier: ^1.3.5
-        version: 1.3.5
       esbuild:
         specifier: ^0.27.2
         version: 0.27.2
@@ -99,73 +106,27 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  functions/liquidator:
+  aws-wrappers/price-updater-lambda:
     dependencies:
-      '@aws-sdk/client-cloudwatch':
-        specifier: ^3.450.0
-        version: 3.958.0
-      '@aws-sdk/client-sqs':
-        specifier: ^3.450.0
-        version: 3.958.0
       '@local-packages/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
-      '@radixdlt/babylon-gateway-api-sdk':
-        specifier: ^1.0.0
-        version: 1.10.1
-      '@weft-finance/ledger-state':
-        specifier: ^0.0.16
-        version: 0.0.16
-      '@weft-finance/manifest-builder':
+      '@local-service/price-updater':
         specifier: workspace:*
-        version: link:../../packages/manifest-builder
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-      pino:
-        specifier: ^10.1.0
-        version: 10.1.0
+        version: link:../../services/price-updater
     devDependencies:
       '@types/aws-lambda':
-        specifier: ^8.10.0
+        specifier: ^8.10.159
         version: 8.10.159
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.27
-      esbuild:
-        specifier: ^0.24.0
-        version: 0.24.2
-      tsup:
-        specifier: ^8.0.0
-        version: 8.5.1(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-
-  functions/price-updater:
-    dependencies:
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../../packages/common-utils
-      pino:
-        specifier: ^10.1.0
-        version: 10.1.0
-    devDependencies:
       '@types/node':
         specifier: ^20.19.27
         version: 20.19.27
-      bun-types:
-        specifier: ^1.3.5
-        version: 1.3.5
       esbuild:
         specifier: ^0.27.2
         version: 0.27.2
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-      vitest:
-        specifier: ^4.0.16
-        version: 4.0.16(@types/node@20.19.27)(yaml@2.8.2)
 
   packages/common-utils:
     dependencies:
@@ -314,112 +275,6 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  wrappers/dispatcher-lambda:
-    dependencies:
-      '@aws-sdk/client-sqs':
-        specifier: ^3.954.0
-        version: 3.958.0
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../../packages/common-utils
-      '@local-service/dispatcher':
-        specifier: workspace:*
-        version: link:../../services/dispatcher
-      '@radixdlt/babylon-gateway-api-sdk':
-        specifier: ^1.10.1
-        version: 1.10.1
-      '@weft-finance/ledger-state':
-        specifier: ^0.0.16
-        version: 0.0.16
-    devDependencies:
-      '@types/aws-lambda':
-        specifier: ^8.10.159
-        version: 8.10.159
-      '@types/node':
-        specifier: ^20.19.27
-        version: 20.19.27
-      esbuild:
-        specifier: ^0.27.2
-        version: 0.27.2
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  wrappers/indexer-container:
-    dependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.954.0
-        version: 3.958.0
-      '@aws-sdk/client-sqs':
-        specifier: ^3.954.0
-        version: 3.958.0
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../../packages/common-utils
-      '@local-service/indexer':
-        specifier: workspace:*
-        version: link:../../services/indexer
-      '@radixdlt/babylon-gateway-api-sdk':
-        specifier: ^1.10.1
-        version: 1.10.1
-      '@weft-finance/ledger-state':
-        specifier: ^0.0.16
-        version: 0.0.16
-    devDependencies:
-      '@types/node':
-        specifier: ^20.19.27
-        version: 20.19.27
-      esbuild:
-        specifier: ^0.24.0
-        version: 0.24.2
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  wrappers/liquidator-lambda:
-    dependencies:
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../../packages/common-utils
-      '@local-service/liquidator':
-        specifier: workspace:*
-        version: link:../../services/liquidator
-    devDependencies:
-      '@types/aws-lambda':
-        specifier: ^8.10.159
-        version: 8.10.159
-      '@types/node':
-        specifier: ^20.19.27
-        version: 20.19.27
-      esbuild:
-        specifier: ^0.27.2
-        version: 0.27.2
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  wrappers/price-updater-lambda:
-    dependencies:
-      '@local-packages/common-utils':
-        specifier: workspace:*
-        version: link:../../packages/common-utils
-      '@local-service/price-updater':
-        specifier: workspace:*
-        version: link:../../services/price-updater
-    devDependencies:
-      '@types/aws-lambda':
-        specifier: ^8.10.159
-        version: 8.10.159
-      '@types/node':
-        specifier: ^20.19.27
-        version: 20.19.27
-      esbuild:
-        specifier: ^0.27.2
-        version: 0.27.2
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
 packages:
 
   '@antfu/eslint-config@6.7.3':
@@ -502,10 +357,6 @@ packages:
 
   '@aws-crypto/util@5.2.0':
     resolution: {integrity: sha512-4RkU9EsI6ZpBve5fseQlGNUWKMa1RLPQ1dnjnQoe07ldfIzcsGb5hC5W0Dm7u423KWzawlrpbjXBrXCEv9zazQ==}
-
-  '@aws-sdk/client-cloudwatch@3.958.0':
-    resolution: {integrity: sha512-AiycUy+M0STDoYeXvR/HfnRElsf4zVSx7fAX02ALDAkNGIy9kgLdrkqYRWuP7oYdRWu1qd0fOgzqxvZVdzCNQg==}
-    engines: {node: '>=18.0.0'}
 
   '@aws-sdk/client-s3@3.958.0':
     resolution: {integrity: sha512-ol8Sw37AToBWb6PjRuT/Wu40SrrZSA0N4F7U3yTkjUNX0lirfO1VFLZ0hZtZplVJv8GNPITbiczxQ8VjxESXxg==}
@@ -1305,10 +1156,6 @@ packages:
 
   '@smithy/md5-js@4.2.7':
     resolution: {integrity: sha512-Wv6JcUxtOLTnxvNjDnAiATUsk8gvA6EeS8zzHig07dotpByYsLot+m0AaQEniUBjx97AC41MQR4hW0baraD1Xw==}
-    engines: {node: '>=18.0.0'}
-
-  '@smithy/middleware-compression@4.3.16':
-    resolution: {integrity: sha512-df41cMk8D/Aa8JRhraZPbeHYUJ012ivOTp9kOs95amfMdRvgNFWz9/qBFbpnTEbsyvFtYfF4HjZ0bgzrkguECQ==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/middleware-content-length@4.2.7':
@@ -2158,9 +2005,6 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
-
-  fflate@0.8.1:
-    resolution: {integrity: sha512-/exOvEuc+/iaUm105QIiOt4LpBdMTWsXxqR0HDF35vx3fmaKzw7354gTilCh5rkzEt8WYyG//ku3h3nRmd7CHQ==}
 
   file-entry-cache@8.0.0:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
@@ -3250,52 +3094,6 @@ snapshots:
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
 
-  '@aws-sdk/client-cloudwatch@3.958.0':
-    dependencies:
-      '@aws-crypto/sha256-browser': 5.2.0
-      '@aws-crypto/sha256-js': 5.2.0
-      '@aws-sdk/core': 3.957.0
-      '@aws-sdk/credential-provider-node': 3.958.0
-      '@aws-sdk/middleware-host-header': 3.957.0
-      '@aws-sdk/middleware-logger': 3.957.0
-      '@aws-sdk/middleware-recursion-detection': 3.957.0
-      '@aws-sdk/middleware-user-agent': 3.957.0
-      '@aws-sdk/region-config-resolver': 3.957.0
-      '@aws-sdk/types': 3.957.0
-      '@aws-sdk/util-endpoints': 3.957.0
-      '@aws-sdk/util-user-agent-browser': 3.957.0
-      '@aws-sdk/util-user-agent-node': 3.957.0
-      '@smithy/config-resolver': 4.4.5
-      '@smithy/core': 3.20.0
-      '@smithy/fetch-http-handler': 5.3.8
-      '@smithy/hash-node': 4.2.7
-      '@smithy/invalid-dependency': 4.2.7
-      '@smithy/middleware-compression': 4.3.16
-      '@smithy/middleware-content-length': 4.2.7
-      '@smithy/middleware-endpoint': 4.4.1
-      '@smithy/middleware-retry': 4.4.17
-      '@smithy/middleware-serde': 4.2.8
-      '@smithy/middleware-stack': 4.2.7
-      '@smithy/node-config-provider': 4.3.7
-      '@smithy/node-http-handler': 4.4.7
-      '@smithy/protocol-http': 5.3.7
-      '@smithy/smithy-client': 4.10.2
-      '@smithy/types': 4.11.0
-      '@smithy/url-parser': 4.2.7
-      '@smithy/util-base64': 4.3.0
-      '@smithy/util-body-length-browser': 4.2.0
-      '@smithy/util-body-length-node': 4.2.1
-      '@smithy/util-defaults-mode-browser': 4.3.16
-      '@smithy/util-defaults-mode-node': 4.2.19
-      '@smithy/util-endpoints': 3.2.7
-      '@smithy/util-middleware': 4.2.7
-      '@smithy/util-retry': 4.2.7
-      '@smithy/util-utf8': 4.2.0
-      '@smithy/util-waiter': 4.2.7
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - aws-crt
-
   '@aws-sdk/client-s3@3.958.0':
     dependencies:
       '@aws-crypto/sha1-browser': 5.2.0
@@ -4337,19 +4135,6 @@ snapshots:
       '@smithy/util-utf8': 4.2.0
       tslib: 2.8.1
 
-  '@smithy/middleware-compression@4.3.16':
-    dependencies:
-      '@smithy/core': 3.20.0
-      '@smithy/is-array-buffer': 4.2.0
-      '@smithy/node-config-provider': 4.3.7
-      '@smithy/protocol-http': 5.3.7
-      '@smithy/types': 4.11.0
-      '@smithy/util-config-provider': 4.2.0
-      '@smithy/util-middleware': 4.2.7
-      '@smithy/util-utf8': 4.2.0
-      fflate: 0.8.1
-      tslib: 2.8.1
-
   '@smithy/middleware-content-length@4.2.7':
     dependencies:
       '@smithy/protocol-http': 5.3.7
@@ -4567,7 +4352,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@standard-schema/spec@1.1.0': {}
+  '@standard-schema/spec@1.1.0':
+    optional: true
 
   '@stylistic/eslint-plugin@5.6.1(eslint@9.39.2)':
     dependencies:
@@ -4585,12 +4371,14 @@ snapshots:
     dependencies:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
+    optional: true
 
   '@types/debug@4.1.12':
     dependencies:
       '@types/ms': 2.1.0
 
-  '@types/deep-eql@4.0.2': {}
+  '@types/deep-eql@4.0.2':
+    optional: true
 
   '@types/estree@1.0.8': {}
 
@@ -4612,11 +4400,11 @@ snapshots:
 
   '@types/secp256k1@4.0.7':
     dependencies:
-      '@types/node': 20.19.27
+      '@types/node': 25.0.3
 
   '@types/secure-random@1.1.3':
     dependencies:
-      '@types/node': 20.19.27
+      '@types/node': 25.0.3
 
   '@types/unist@3.0.3': {}
 
@@ -4730,14 +4518,7 @@ snapshots:
       '@vitest/utils': 4.0.16
       chai: 6.2.2
       tinyrainbow: 3.0.3
-
-  '@vitest/mocker@4.0.16(vite@7.3.0(@types/node@20.19.27)(yaml@2.8.2))':
-    dependencies:
-      '@vitest/spy': 4.0.16
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
+    optional: true
 
   '@vitest/mocker@4.0.16(vite@7.3.0(@types/node@25.0.3)(yaml@2.8.2))':
     dependencies:
@@ -4751,24 +4532,29 @@ snapshots:
   '@vitest/pretty-format@4.0.16':
     dependencies:
       tinyrainbow: 3.0.3
+    optional: true
 
   '@vitest/runner@4.0.16':
     dependencies:
       '@vitest/utils': 4.0.16
       pathe: 2.0.3
+    optional: true
 
   '@vitest/snapshot@4.0.16':
     dependencies:
       '@vitest/pretty-format': 4.0.16
       magic-string: 0.30.21
       pathe: 2.0.3
+    optional: true
 
-  '@vitest/spy@4.0.16': {}
+  '@vitest/spy@4.0.16':
+    optional: true
 
   '@vitest/utils@4.0.16':
     dependencies:
       '@vitest/pretty-format': 4.0.16
       tinyrainbow: 3.0.3
+    optional: true
 
   '@vue/compiler-core@3.5.26':
     dependencies:
@@ -4832,7 +4618,8 @@ snapshots:
 
   argparse@2.0.1: {}
 
-  assertion-error@2.0.1: {}
+  assertion-error@2.0.1:
+    optional: true
 
   atomic-sleep@1.0.0: {}
 
@@ -4893,7 +4680,7 @@ snapshots:
 
   bun-types@1.3.5:
     dependencies:
-      '@types/node': 20.19.27
+      '@types/node': 25.0.3
 
   bundle-require@5.1.0(esbuild@0.27.2):
     dependencies:
@@ -4925,7 +4712,8 @@ snapshots:
 
   ccount@2.0.1: {}
 
-  chai@6.2.2: {}
+  chai@6.2.2:
+    optional: true
 
   chalk@4.1.2:
     dependencies:
@@ -5065,7 +4853,8 @@ snapshots:
 
   es-errors@1.3.0: {}
 
-  es-module-lexer@1.7.0: {}
+  es-module-lexer@1.7.0:
+    optional: true
 
   es-object-atoms@1.1.1:
     dependencies:
@@ -5415,10 +5204,12 @@ snapshots:
   estree-walker@3.0.3:
     dependencies:
       '@types/estree': 1.0.8
+    optional: true
 
   esutils@2.0.3: {}
 
-  expect-type@1.3.0: {}
+  expect-type@1.3.0:
+    optional: true
 
   exsolve@1.0.8: {}
 
@@ -5439,8 +5230,6 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
       picomatch: 4.0.3
-
-  fflate@0.8.1: {}
 
   file-entry-cache@8.0.0:
     dependencies:
@@ -6033,7 +5822,8 @@ snapshots:
 
   object-deep-merge@2.0.0: {}
 
-  obug@2.1.1: {}
+  obug@2.1.1:
+    optional: true
 
   on-exit-leak-free@2.1.2: {}
 
@@ -6273,7 +6063,8 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  siginfo@2.0.0: {}
+  siginfo@2.0.0:
+    optional: true
 
   sisteransi@1.0.5: {}
 
@@ -6296,9 +6087,11 @@ snapshots:
 
   split2@4.2.0: {}
 
-  stackback@0.0.2: {}
+  stackback@0.0.2:
+    optional: true
 
-  std-env@3.10.0: {}
+  std-env@3.10.0:
+    optional: true
 
   string_decoder@1.1.1:
     dependencies:
@@ -6342,7 +6135,8 @@ snapshots:
     dependencies:
       real-require: 0.2.0
 
-  tinybench@2.9.0: {}
+  tinybench@2.9.0:
+    optional: true
 
   tinyexec@0.3.2: {}
 
@@ -6353,7 +6147,8 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
 
-  tinyrainbow@3.0.3: {}
+  tinyrainbow@3.0.3:
+    optional: true
 
   to-buffer@1.2.2:
     dependencies:
@@ -6466,19 +6261,6 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite@7.3.0(@types/node@20.19.27)(yaml@2.8.2):
-    dependencies:
-      esbuild: 0.27.2
-      fdir: 6.5.0(picomatch@4.0.3)
-      picomatch: 4.0.3
-      postcss: 8.5.6
-      rollup: 4.54.0
-      tinyglobby: 0.2.15
-    optionalDependencies:
-      '@types/node': 20.19.27
-      fsevents: 2.3.3
-      yaml: 2.8.2
-
   vite@7.3.0(@types/node@25.0.3)(yaml@2.8.2):
     dependencies:
       esbuild: 0.27.2
@@ -6492,43 +6274,6 @@ snapshots:
       fsevents: 2.3.3
       yaml: 2.8.2
     optional: true
-
-  vitest@4.0.16(@types/node@20.19.27)(yaml@2.8.2):
-    dependencies:
-      '@vitest/expect': 4.0.16
-      '@vitest/mocker': 4.0.16(vite@7.3.0(@types/node@20.19.27)(yaml@2.8.2))
-      '@vitest/pretty-format': 4.0.16
-      '@vitest/runner': 4.0.16
-      '@vitest/snapshot': 4.0.16
-      '@vitest/spy': 4.0.16
-      '@vitest/utils': 4.0.16
-      es-module-lexer: 1.7.0
-      expect-type: 1.3.0
-      magic-string: 0.30.21
-      obug: 2.1.1
-      pathe: 2.0.3
-      picomatch: 4.0.3
-      std-env: 3.10.0
-      tinybench: 2.9.0
-      tinyexec: 1.0.2
-      tinyglobby: 0.2.15
-      tinyrainbow: 3.0.3
-      vite: 7.3.0(@types/node@20.19.27)(yaml@2.8.2)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@types/node': 20.19.27
-    transitivePeerDependencies:
-      - jiti
-      - less
-      - lightningcss
-      - msw
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - terser
-      - tsx
-      - yaml
 
   vitest@4.0.16(@types/node@25.0.3)(yaml@2.8.2):
     dependencies:
@@ -6598,6 +6343,7 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+    optional: true
 
   word-wrap@1.2.5: {}
 
