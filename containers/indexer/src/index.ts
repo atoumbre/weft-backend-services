@@ -12,6 +12,7 @@ const logger = createLogger({ service: 'indexer' })
 //
 
 //
+//
 
 export function createMessageProcessor(params: {
   sqs: Pick<SQSClient, 'send'>
