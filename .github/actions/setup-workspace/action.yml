@@ -1,0 +1,50 @@
+name: Setup Workspace
+description: Sets up Node.js, Bun, PNPM with caching for the monorepo
+
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: '22'
+  bun-version:
+    description: Bun version
+    required: false
+    default: 1.2.13
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Enable Corepack & Setup PNPM
+      shell: bash
+      run: corepack enable && corepack prepare pnpm@latest --activate
+
+    - name: Get PNPM store directory
+      id: pnpm-cache
+      shell: bash
+      run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+    - name: Setup PNPM cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install Dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Build Workspace
+      shell: bash
+      run: pnpm run build

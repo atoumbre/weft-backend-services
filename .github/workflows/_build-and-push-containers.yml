@@ -1,4 +1,4 @@
-name: Build Service
+name: Build and Push Container
 
 on:
   workflow_call:
@@ -6,47 +6,28 @@ on:
       AWS_ACCOUNT_ID:
         required: true
     inputs:
-      service_name:
-        description: Service name used for ECR and ECS.
+      wrapper-name:
+        description: Wrapper name (e.g., indexer-container)
         required: true
         type: string
-      service_path:
-        description: Build context path relative to repo root.
-        required: false
-        type: string
-        default: .
-      working_directory:
-        description: Working directory for prepare/test steps.
-        required: false
-        type: string
-        default: .
-      image_tag:
+      image-tag:
         description: Image tag to push (latest is always pushed).
         required: false
         type: string
         default: latest
-      aws_region:
-        description: AWS region for ECR/ECS.
+      aws-region:
+        description: AWS region for ECR.
         required: false
         type: string
         default: us-east-1
-      prepare_test:
-        description: Optional command to prepare tests.
+      node-version:
         required: false
         type: string
-      test:
-        description: Optional test command.
+        default: '22'
+      bun-version:
         required: false
         type: string
-      prepare_build:
-        description: Optional command to run before container build.
-        required: false
-        type: string
-      dockerfile:
-        description: Path to Dockerfile (relative to service_path).
-        required: false
-        type: string
-        default: Dockerfile
+        default: '1.2.13'
 
 permissions:
   id-token: write
@@ -57,51 +38,41 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+
+      - name: Setup Workspace
+        uses: ./.github/actions/setup-workspace
         with:
-          node-version: 22
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.13
-      - name: Enable Corepack
-        run: corepack enable && corepack prepare pnpm@latest --activate
+          node-version: ${{ inputs.node-version }}
+          bun-version: ${{ inputs.bun-version }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/weft-github-actions-role
-          aws-region: ${{ inputs.aws_region }}
-      - name: Prepare
-        if: ${{ inputs.prepare_test != '' }}
-        run: ${{ inputs.prepare_test }}
-        working-directory: ${{ inputs.working_directory }}
-      - name: Test
-        if: ${{ inputs.test != '' }}
-        run: ${{ inputs.test }}
-        working-directory: ${{ inputs.working_directory }}
-      - name: Pre-build
-        if: ${{ inputs.prepare_build != '' }}
-        run: ${{ inputs.prepare_build }}
-        working-directory: ${{ inputs.working_directory }}
+          aws-region: ${{ inputs.aws-region }}
+
       - name: Get AWS Account ID
         id: account
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+
       - name: Login to ECR
         run: |
-          aws ecr get-login-password --region "${{ inputs.aws_region }}" \
-            | docker login --username AWS --password-stdin "${{ steps.account.outputs.id }}.dkr.ecr.${{ inputs.aws_region }}.amazonaws.com"
+          aws ecr get-login-password --region "${{ inputs.aws-region }}" \
+            | docker login --username AWS --password-stdin "${{ steps.account.outputs.id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com"
+
       - name: Build and Push
         run: |
-          IMAGE="${{ steps.account.outputs.id }}.dkr.ecr.${{ inputs.aws_region }}.amazonaws.com/weft-${{ inputs.service_name }}"
+          IMAGE="${{ steps.account.outputs.id }}.dkr.ecr.${{ inputs.aws-region }}.amazonaws.com/weft-${{ inputs.wrapper-name }}"
           docker buildx build \
             --platform linux/arm64 \
             --pull \
-            -t "${IMAGE}:${{ inputs.image_tag }}" \
+            -t "${IMAGE}:${{ inputs.image-tag }}" \
             -t "${IMAGE}:latest" \
-            -f "${{ inputs.service_path }}/${{ inputs.dockerfile }}" \
-            --push "${{ inputs.service_path }}"
+            -f "aws-wrappers/${{ inputs.wrapper-name }}/Dockerfile" \
+            --push .

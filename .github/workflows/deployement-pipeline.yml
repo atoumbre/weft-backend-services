@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '20'
-  BUN_VERSION: 1.2.13
+  NODE_VERSION: '22'
+  BUN_VERSION: '1.2.13'
   AWS_REGION: us-east-1
 
 concurrency:
@@ -36,7 +36,7 @@ jobs:
       dispatcher: ${{ steps.filter.outputs.dispatcher }}
       indexer: ${{ steps.filter.outputs.indexer }}
       liquidator: ${{ steps.filter.outputs.liquidator }}
-      oracle_updater: ${{ steps.filter.outputs.oracle_updater }}
+      price-updater: ${{ steps.filter.outputs.price-updater }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -44,16 +44,20 @@ jobs:
         with:
           filters: |
             dispatcher:
-              - 'functions/dispatcher/**'
+              - 'aws-wrappers/dispatcher-lambda/**'
+              - 'services/dispatcher/**'
               - 'packages/**'
             indexer:
-              - 'containers/indexer/**'
+              - 'aws-wrappers/indexer-container/**'
+              - 'services/indexer/**'
               - 'packages/**'
             liquidator:
-              - 'functions/liquidator/**'
+              - 'aws-wrappers/liquidator-lambda/**'
+              - 'services/liquidator/**'
               - 'packages/**'
-            oracle_updater:
-              - 'functions/oracle-updater/**'
+            price-updater:
+              - 'aws-wrappers/price-updater-lambda/**'
+              - 'services/price-updater/**'
               - 'packages/**'
 
   set-env:
@@ -81,69 +85,54 @@ jobs:
           fi
           echo "name=${env_name}" >> "$GITHUB_OUTPUT"
 
-  # 4. Service Validation Bloc
-
-  # 5. Service Artifacts Bloc (Containers)
+  # Container builds
   build-indexer:
     needs: [filter, tests-services]
     if: needs.filter.outputs.indexer == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
     uses: ./.github/workflows/_build-and-push-containers.yml
     with:
-      service_name: indexer
-      service_path: .
-      dockerfile: containers/indexer/Dockerfile
-      working_directory: containers/indexer
-      image_tag: ${{ github.sha }}
+      wrapper-name: indexer-container
+      image-tag: ${{ github.sha }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
-  # 6. Service Deployment Bloc (Pinpoint dependencies)
+  # Container deployments
   deploy-indexer:
     needs: [set-env, build-indexer]
-    if: |
-      always() &&
-      needs.build-indexer.result == 'success'
+    if: always() && needs.build-indexer.result == 'success'
     uses: ./.github/workflows/_deploy-service.yml
     secrets: inherit
     with:
       service_name: weft-${{ needs.set-env.outputs.name }}-indexer
       environment: ${{ needs.set-env.outputs.name }}
 
-  deploy-liquidator:
-    needs: [filter, set-env, tests-services]
-    if: |
-      needs.filter.outputs.liquidator == 'true' &&
-      (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
-    uses: ./.github/workflows/_deploy-lambda.yml
-    secrets: inherit
-    with:
-      service-name: liquidator
-      service-path: functions/liquidator
-      function-name: weft-${{ needs.set-env.outputs.name }}-liquidator
-      environment: ${{ needs.set-env.outputs.name }}
-
+  # Lambda deployments
   deploy-dispatcher:
     needs: [filter, set-env, tests-services]
-    if: |
-      needs.filter.outputs.dispatcher == 'true' &&
-      (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
+    if: needs.filter.outputs.dispatcher == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
     uses: ./.github/workflows/_deploy-lambda.yml
     secrets: inherit
     with:
-      service-name: dispatcher
-      service-path: functions/dispatcher
+      wrapper-name: dispatcher-lambda
       function-name: weft-${{ needs.set-env.outputs.name }}-dispatcher
       environment: ${{ needs.set-env.outputs.name }}
 
-  # deploy-oracle-updater:
-  #   needs: [filter, set-env, tests-services]
-  #   if: |
-  #     needs.filter.outputs.oracle_updater == 'true' &&
-  #     (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
-  #   uses: ./.github/workflows/_deploy-lambda.yml
-  #   secrets: inherit
-  #   with:
-  #     service-name: oracle-updater
-  #     service-path: functions/oracle-updater
-  #     function-name: weft-${{ needs.set-env.outputs.name }}-oracle-updater
-  #     environment: ${{ needs.set-env.outputs.name }}
+  deploy-liquidator:
+    needs: [filter, set-env, tests-services]
+    if: needs.filter.outputs.liquidator == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
+    uses: ./.github/workflows/_deploy-lambda.yml
+    secrets: inherit
+    with:
+      wrapper-name: liquidator-lambda
+      function-name: weft-${{ needs.set-env.outputs.name }}-liquidator
+      environment: ${{ needs.set-env.outputs.name }}
+
+  deploy-price-updater:
+    needs: [filter, set-env, tests-services]
+    if: needs.filter.outputs.price-updater == 'true' && (needs.tests-services.result == 'success' || needs.tests-services.result == 'skipped')
+    uses: ./.github/workflows/_deploy-lambda.yml
+    secrets: inherit
+    with:
+      wrapper-name: price-updater-lambda
+      function-name: weft-${{ needs.set-env.outputs.name }}-price-updater
+      environment: ${{ needs.set-env.outputs.name }}

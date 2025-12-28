@@ -3,14 +3,10 @@ name: Deploy Lambda
 on:
   workflow_call:
     inputs:
-      service-name:
+      wrapper-name:
         required: true
         type: string
-        description: Name of the service
-      service-path:
-        required: true
-        type: string
-        description: Path to the service directory
+        description: Name of the wrapper (e.g., dispatcher-lambda)
       function-name:
         required: true
         type: string
@@ -18,7 +14,7 @@ on:
       environment:
         required: true
         type: string
-        description: Environment name
+        description: Environment name (mainnet or stokenet)
       node-version:
         required: false
         type: string
@@ -27,7 +23,7 @@ on:
       bun-version:
         required: false
         type: string
-        default: 1.2.13
+        default: '1.2.13'
         description: Bun version
       aws-region:
         required: false
@@ -42,51 +38,23 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy ${{ inputs.service-name }}
+    name: Deploy ${{ inputs.wrapper-name }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Workspace
+        uses: ./.github/actions/setup-workspace
         with:
           node-version: ${{ inputs.node-version }}
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
           bun-version: ${{ inputs.bun-version }}
-
-      - name: Enable Corepack & Setup PNPM
-        run: corepack enable && corepack prepare pnpm@latest --activate
-
-      - name: Get PNPM store directory
-        id: pnpm-cache
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - name: Setup PNPM cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: .
-
-      - name: Build Workspace
-        run: pnpm run build
-        working-directory: .
 
       - name: Bundle
         run: pnpm run bundle
-        working-directory: ${{ inputs.service-path }}
+        working-directory: aws-wrappers/${{ inputs.wrapper-name }}
 
       - name: Package Lambda
-        run: zip -r ${{ inputs.service-name }}.zip dist
-        working-directory: ${{ inputs.service-path }}
+        run: zip -r ${{ inputs.wrapper-name }}.zip dist
+        working-directory: aws-wrappers/${{ inputs.wrapper-name }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -98,4 +66,4 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ inputs.function-name }}" \
-            --zip-file "fileb://${{ inputs.service-path }}/${{ inputs.service-name }}.zip"
+            --zip-file "fileb://aws-wrappers/${{ inputs.wrapper-name }}/${{ inputs.wrapper-name }}.zip"
