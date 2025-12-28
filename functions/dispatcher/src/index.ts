@@ -19,7 +19,6 @@ function requireEnv(name: string): string {
 }
 
 //
-//
 
 export function createDispatcherHandler(params: {
   sqs: Pick<SQSClient, 'send'>

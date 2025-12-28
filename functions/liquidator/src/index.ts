@@ -49,6 +49,8 @@ async function processRecord(record: SQSRecord, baseLogger: typeof logger) {
     })
   }
 
+  //
+
   localLogger.info({ event: 'liquidator.message.received', cdpCount: ids.length })
 
   const failures: string[] = []
