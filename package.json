@@ -9,13 +9,10 @@
     "test": "turbo run test",
     "lint": "eslint --fix ."
   },
-  "dependencies": {
-    "tslog": "^4.10.2",
-    "tsup": "^8.5.1"
-  },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
     "eslint": "^9.39.2",
+    "tsup": "^8.5.1",
     "turbo": "^2.5.4"
   }
 }

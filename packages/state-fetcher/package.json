@@ -1,0 +1,32 @@
+{
+  "name": "@weft-finance/state-fetcher",
+  "type": "commonjs",
+  "version": "0.0.1",
+  "description": "Utility for fetching ledger state",
+  "author": {
+    "name": "Weft Finance",
+    "email": "community@weft.finance"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint . --fix",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typo-check": "cspell -c ../../cspell.json . --quiet",
+    "test": "bun test",
+    "release": "pnpm run lint && pnpm build && npm publish"
+  },
+  "dependencies": {
+    "@radixdlt/babylon-gateway-api-sdk": "^1.10.1",
+    "decimal.js": "^10.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

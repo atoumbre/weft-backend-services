@@ -1,0 +1,21 @@
+// ../../tsup.config.ts
+import { defineConfig } from "tsup";
+var tsup_config_default = defineConfig({
+  entry: [
+    "src/**/*.ts"
+  ],
+  splitting: false,
+  sourcemap: false,
+  minify: true,
+  format: ["cjs", "esm"],
+  // AWS Lambda Node.js runtime primarily uses CommonJS (cjs)
+  dts: true,
+  external: ["aws-sdk"],
+  // Mark AWS SDK as external since it's available in the Lambda environment
+  target: "node22",
+  outDir: "dist"
+});
+export {
+  tsup_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsiLi4vLi4vdHN1cC5jb25maWcudHMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9faW5qZWN0ZWRfZmlsZW5hbWVfXyA9IFwiL1VzZXJzL2F0b3VtYnJlL1NvZnRpTGFiL3Byb2plY3QtaW5mcmEvd2VmdC1iYWNrZW5kLXNlcnZpY2VzL3RzdXAuY29uZmlnLnRzXCI7Y29uc3QgX19pbmplY3RlZF9kaXJuYW1lX18gPSBcIi9Vc2Vycy9hdG91bWJyZS9Tb2Z0aUxhYi9wcm9qZWN0LWluZnJhL3dlZnQtYmFja2VuZC1zZXJ2aWNlc1wiO2NvbnN0IF9faW5qZWN0ZWRfaW1wb3J0X21ldGFfdXJsX18gPSBcImZpbGU6Ly8vVXNlcnMvYXRvdW1icmUvU29mdGlMYWIvcHJvamVjdC1pbmZyYS93ZWZ0LWJhY2tlbmQtc2VydmljZXMvdHN1cC5jb25maWcudHNcIjtpbXBvcnQgeyBkZWZpbmVDb25maWcgfSBmcm9tICd0c3VwJ1xuXG5leHBvcnQgZGVmYXVsdCBkZWZpbmVDb25maWcoe1xuICBlbnRyeTogW1xuICAgICdzcmMvKiovKi50cycsXG4gIF0sXG4gIHNwbGl0dGluZzogZmFsc2UsXG4gIHNvdXJjZW1hcDogZmFsc2UsXG4gIG1pbmlmeTogdHJ1ZSxcbiAgZm9ybWF0OiBbJ2NqcycsICdlc20nXSwgLy8gQVdTIExhbWJkYSBOb2RlLmpzIHJ1bnRpbWUgcHJpbWFyaWx5IHVzZXMgQ29tbW9uSlMgKGNqcylcbiAgZHRzOiB0cnVlLFxuICBleHRlcm5hbDogWydhd3Mtc2RrJ10sIC8vIE1hcmsgQVdTIFNESyBhcyBleHRlcm5hbCBzaW5jZSBpdCdzIGF2YWlsYWJsZSBpbiB0aGUgTGFtYmRhIGVudmlyb25tZW50XG4gIHRhcmdldDogJ25vZGUyMicsXG4gIG91dERpcjogJ2Rpc3QnLFxufSlcbiJdLAogICJtYXBwaW5ncyI6ICI7QUFBa1UsU0FBUyxvQkFBb0I7QUFFL1YsSUFBTyxzQkFBUSxhQUFhO0FBQUEsRUFDMUIsT0FBTztBQUFBLElBQ0w7QUFBQSxFQUNGO0FBQUEsRUFDQSxXQUFXO0FBQUEsRUFDWCxXQUFXO0FBQUEsRUFDWCxRQUFRO0FBQUEsRUFDUixRQUFRLENBQUMsT0FBTyxLQUFLO0FBQUE7QUFBQSxFQUNyQixLQUFLO0FBQUEsRUFDTCxVQUFVLENBQUMsU0FBUztBQUFBO0FBQUEsRUFDcEIsUUFBUTtBQUFBLEVBQ1IsUUFBUTtBQUNWLENBQUM7IiwKICAibmFtZXMiOiBbXQp9Cg==

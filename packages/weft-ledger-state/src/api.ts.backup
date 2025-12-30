@@ -1,0 +1,986 @@
+import type { LedgerStateSelector, StateNonFungibleLocationResponseItem, TransactionPreviewRequest, TransactionPreviewResponse } from '@radixdlt/babylon-gateway-api-sdk'
+import type { CollateralizeDebtPositionData, CollateralPositionData, LoanPositionData, NFTCollateralPositionData, NFTLiquidationValue } from './types/cdp'
+import type { ConfigurationEntry, OperatingStatusValue } from './types/common'
+import type { CollateralConfig, CollateralService, EfficiencyGroup, LendingMarketState, LoanConfig, LoanService, MarketConfig, MarketProtocolFeeConfig, MarketService, ResourceConfig } from './types/lending-market'
+import type { LendingPoolState, LendingService, ResourcePoolConfig, ResourcePoolState } from './types/lending-pool'
+import type { ClaimNFTCollateral, CollateralResource, FetchResult, GlobalCollateralService, LoanResource, LSUCollateral, ReturnedResourcePoolState } from './types/return-types'
+import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
+import Decimal from 'decimal.js'
+import { KeyValueStore } from '../../state-fetcher/src/owned-entity/key-value-store'
+import EntityStateFetcher from '../../state-fetcher/src/state-fetcher'
+import { dec, ZERO } from '../../state-fetcher/src/utils'
+import { CDP_RESOURCE, defaultLendingPools, LENDING_MARKET_COLLATERAL_CONFIG_KVS, LENDING_MARKET_COLLATERAL_SERVICE_KVS, LENDING_MARKET_COMPONENT, LENDING_MARKET_EFFICIENT_GROUP_KVS, LENDING_MARKET_LOAN_CONFIG_KVS, LENDING_MARKET_LOAN_SERVICE_KVS, LENDING_MARKET_PRICE_CACHE_KVS, LENDING_MARKET_RES_CONFIG_KVS, LENDING_POOL_COMPONENT, LENDING_POOL_INTEREST_STRATEGY_KVS, LENDING_POOL_RESOURCE_POOL_KVS, LENDING_POOL_SERVICE_KVS, PROTOCOL_INTEREST_SHARE, resourceToDuMapping, STAKEHOLDER_REWARD_SHARE, WEFT_RESOURCE, WEFT_STAKING_COMPONENT, XUSDC_RESOURCE } from './lib/const'
+import { configAndServiceKeyPlugin, servicePlugin, serviceStatusStrategyPlugin } from './lib/fetcher-plugins'
+import { InterestStrategy } from './models/interest-strategy'
+
+Decimal.set({ precision: 50, rounding: Decimal.ROUND_DOWN, toExpNeg: -50, toExpPos: 50 })
+
+export interface WeftRadixApiServiceInterface {
+  getPrice: (resources: string[] | undefined) => Promise<{ resourceAddress: string, price: Decimal }[]>
+
+  getPriceAtLedgerState: (resources: string[], ledgerStateSelector?: LedgerStateSelector) => Promise<{ resourceAddress: any, price: Decimal }[]>
+
+  getPoolInfos: (ledgerStateSelector?: LedgerStateSelector) => Promise<{
+    pools: ReturnedResourcePoolState[]
+    globalLendingService: Record<LendingService, OperatingStatusValue>
+  }>
+
+  getInterestModels: () => Promise<{ id: string, model: InterestStrategy }[]>
+
+  getMarketInfos: (edgerStateSelector?: LedgerStateSelector) => Promise<{
+    loanResources: LoanResource[]
+    collateralResources: CollateralResource[]
+    lsuCollaterals: LSUCollateral[]
+    claimNftCollaterals: ClaimNFTCollateral[]
+    marketConfig: MarketConfig
+    marketFeeConfig: MarketProtocolFeeConfig
+    globalMarketService: Record<MarketService, OperatingStatusValue>
+    globalLendingService: Record<LendingService, OperatingStatusValue>
+    globalLoanService: Record<LoanService, OperatingStatusValue>
+    globalCollateralService: GlobalCollateralService
+
+    allFungibleResourceAddresses: string[]
+    allValidatorAddresses: string[]
+  }>
+
+  getSingleCdp: (id: string, preManifest: string) => Promise<CollateralizeDebtPositionData>
+
+  getMultipleCdp: (
+    ids: string[],
+    options?: { cdpPerBatch?: number, onProgress?: (fetched: number) => void }
+  ) => Promise<FetchResult>
+
+  // Extras
+
+  getCdpIds: (returnBurntTokens: boolean) => Promise<StateNonFungibleLocationResponseItem[]>
+
+  getWeftStakingApr: () => Promise<{ apr: number, staked: number, tvl_xrd: number, tvl_usd: number }>
+}
+
+export class WeftLedgerSateFetcher implements WeftRadixApiServiceInterface {
+  private static instance: WeftLedgerSateFetcher
+
+  private constructor(
+    private radixGatewayApi: GatewayApiClient,
+    private stateFetcher: EntityStateFetcher,
+  ) { }
+
+  static setInstance(radixGatewayApi?: GatewayApiClient): WeftLedgerSateFetcher {
+    if (!this.instance) {
+      const defaultApi = radixGatewayApi ?? GatewayApiClient.initialize({
+        basePath: 'https://mainnet.radixdlt.com',
+        applicationName: 'Weft API',
+      })
+
+      const stateFetcher = new EntityStateFetcher(defaultApi)
+      stateFetcher.addPlugins({
+        tuplePlugins: [serviceStatusStrategyPlugin],
+        enumPlugins: [configAndServiceKeyPlugin, servicePlugin],
+      })
+
+      this.instance = new WeftLedgerSateFetcher(defaultApi, stateFetcher)
+    }
+
+    return this.instance
+  }
+
+  static getInstance(): WeftLedgerSateFetcher {
+    if (!this.instance) {
+      throw new Error('WeftRadixApiService not instantiated')
+    }
+
+    return this.instance
+  }
+
+  getFetcher(): EntityStateFetcher {
+    return this.stateFetcher
+  }
+
+  getGatewayApi(): GatewayApiClient {
+    return this.radixGatewayApi
+  }
+
+  async getPoolInfos(ledgerStateSelector?: LedgerStateSelector): Promise<{
+    pools: ReturnedResourcePoolState[]
+    globalLendingService: Record<LendingService, OperatingStatusValue>
+  }> {
+    const lendingServiceKVS = new KeyValueStore<string, Record<LendingService, OperatingStatusValue>>(LENDING_POOL_SERVICE_KVS, this.stateFetcher)
+
+    const [res] = await Promise.all([
+      ledgerStateSelector
+        ? this.getResourcePoolAtLedgerState(ledgerStateSelector)
+        : this.getResourcePoolLive(),
+      lendingServiceKVS.init(ledgerStateSelector),
+    ])
+
+    res.forEach((poolState, index) => {
+      const serviceStatus = lendingServiceKVS.getValue(`Resource_${poolState.resourceAddress}`)
+      if (serviceStatus) {
+        res[index]!.serviceStatus = serviceStatus
+      }
+    })
+
+    return { pools: res, globalLendingService: lendingServiceKVS.getValue('Global')! }
+  }
+
+  async getMarketInfos(ledgerStateSelector?: LedgerStateSelector): Promise<{
+    loanResources: LoanResource[]
+    collateralResources: CollateralResource[]
+    lsuCollaterals: LSUCollateral[]
+    claimNftCollaterals: ClaimNFTCollateral[]
+    marketConfig: MarketConfig
+    marketFeeConfig: MarketProtocolFeeConfig
+    globalMarketService: Record<MarketService, OperatingStatusValue>
+    globalLendingService: Record<LendingService, OperatingStatusValue>
+    globalLoanService: Record<LoanService, OperatingStatusValue>
+    globalCollateralService: GlobalCollateralService
+
+    allFungibleResourceAddresses: string[]
+    allValidatorAddresses: string[]
+  }> {
+    const allFungibleResourceAddressesSet = new Set<string>()
+    const allValidatorAddressesSet = new Set<string>()
+
+    const resourceConfigs = new KeyValueStore<string, ResourceConfig>(LENDING_MARKET_RES_CONFIG_KVS, this.stateFetcher)
+    const collateralConfigManagerEntries = new KeyValueStore<string, ConfigurationEntry<string, CollateralConfig>>(LENDING_MARKET_COLLATERAL_CONFIG_KVS, this.stateFetcher)
+    const loanConfigManagerEntries = new KeyValueStore<string, ConfigurationEntry<string, LoanConfig>>(LENDING_MARKET_LOAN_CONFIG_KVS, this.stateFetcher)
+    const efficiencyGroupManagerEntries = new KeyValueStore<string, ConfigurationEntry<string, EfficiencyGroup>>(LENDING_MARKET_EFFICIENT_GROUP_KVS, this.stateFetcher)
+    const loanServiceManagerEntries = new KeyValueStore<string, Record<LoanService, OperatingStatusValue>>(LENDING_MARKET_LOAN_SERVICE_KVS, this.stateFetcher)
+    const collateralServiceManagerEntries = new KeyValueStore<string, Record<CollateralService, OperatingStatusValue>>(LENDING_MARKET_COLLATERAL_SERVICE_KVS, this.stateFetcher)
+
+    const [lendingInfo, lendingPoolComponentStates, lendingMarketComponentStates] = await Promise.all([
+      this.getPoolInfos(ledgerStateSelector),
+      this.stateFetcher.fetchEntityState<LendingPoolState>([LENDING_POOL_COMPONENT], {
+        ledgerStateSelector,
+        loadResourceDetails: true,
+      }),
+      this.stateFetcher.fetchEntityState<LendingMarketState>([LENDING_MARKET_COMPONENT], {
+        ledgerStateSelector,
+        loadResourceDetails: true,
+      }),
+      resourceConfigs.init(ledgerStateSelector),
+      collateralConfigManagerEntries.init(ledgerStateSelector),
+      loanConfigManagerEntries.init(ledgerStateSelector),
+      efficiencyGroupManagerEntries.init(ledgerStateSelector),
+      loanServiceManagerEntries.init(ledgerStateSelector),
+      collateralServiceManagerEntries.init(ledgerStateSelector),
+    ])
+
+    const lendingPoolComponentState = lendingPoolComponentStates[0]
+    const lendingMarketComponentState = lendingMarketComponentStates[0]
+
+    if (!lendingMarketComponentState)
+      throw new Error('Invalid State')
+
+    const marketState = lendingMarketComponentState.$state
+
+    if (!marketState)
+      throw new Error('Invalid State')
+
+    const loanResources: LoanResource[] = []
+    const collateralResources: CollateralResource[] = []
+
+    Object.entries(resourceConfigs.values).forEach(([address, config]) => {
+      allFungibleResourceAddressesSet.add(address)
+
+      if (config.loanConfig) {
+        const lendingPoolState = lendingInfo.pools.find(pool => pool.resourceAddress === address)!
+        const resourceDetails = lendingPoolComponentState?.$fungibleResources.values[address]?.fungibleDetails
+        const duResourceDetails = lendingMarketComponentState?.$fungibleResources.values[lendingPoolState.depositUnitAddress]?.fungibleDetails
+
+        loanResources.push({
+          resourceAddress: address,
+          resourceConfig: config.loanConfig,
+          riskConfig: loanConfigManagerEntries.getValue(`Current_${config.loanConfig.loanConfigId}`)!.entry,
+          services: loanServiceManagerEntries.getValue(`Resource_${address}`)!,
+          lendingPoolState,
+          metadata: resourceDetails?.$metadata ?? {},
+          duMetadata: duResourceDetails?.$metadata ?? {},
+          // resourceDetails: lendingPoolComponentState?.$fungibleResources.values[address]?.fungibleDetails,
+          // duResourceDetails: lendingPoolComponentState?.$fungibleResources.values[lendingPoolState.depositUnitAddress]?.fungibleDetails,
+        })
+      }
+
+      if (config.collateralConfig) {
+        const efficiencyConfigs: Record<string, { group: EfficiencyGroup, config: CollateralConfig }> = {}
+
+        config.collateralConfig.efficiencyGroupIds.forEach((p) => {
+          const efficiencyConfig = efficiencyGroupManagerEntries.getValue(`Current_${p}`)!.entry
+          efficiencyConfigs[`${p}`] = { group: efficiencyConfig, config: collateralConfigManagerEntries.getValue(`Current_${efficiencyConfig.collateralConfigId}`)!.entry }
+        })
+
+        collateralResources.push({
+          resourceAddress: address,
+          resourceConfig: config.collateralConfig,
+          riskConfig: collateralConfigManagerEntries.getValue(`Current_${config.collateralConfig.collateralConfigId}`)!.entry,
+          efficiencyConfigs,
+          services: collateralServiceManagerEntries.getValue(`Resource_${address}`)!,
+          totalDeposit: dec(0),
+          totalDepositDU: dec(0),
+          totalDepositUnderDU: dec(0),
+          metadata: {},
+        })
+      }
+    })
+
+    const lsuCollaterals: LSUCollateral[] = []
+
+    Object.entries(lendingMarketComponentState?.$fungibleResources.values ?? {}).forEach(([address, data]) => {
+      allFungibleResourceAddressesSet.add(address)
+
+      const duIndex = loanResources.findIndex(loanResource => loanResource.lendingPoolState?.depositUnitAddress === address)
+
+      const collateralAddress = duIndex > -1
+        ? loanResources[duIndex]!.resourceAddress
+        : address
+
+      const index = collateralResources.findIndex(collateralResource =>
+        collateralResource.resourceAddress === collateralAddress,
+      )
+
+      if (index > -1) {
+        if (duIndex > -1) {
+          const duAmount = collateralResources[index]!.totalDeposit.add(data.amount ?? dec(0))
+          collateralResources[index]!.totalDepositDU = duAmount
+          collateralResources[index]!.totalDepositUnderDU = dec(duAmount.mul(loanResources[duIndex]!.lendingPoolState!.depositUnitPrice))
+        }
+        else {
+          collateralResources[index]!.totalDeposit = collateralResources[index]!.totalDeposit.add(data.amount ?? dec(0))
+
+          collateralResources[index]!.metadata = data.fungibleDetails?.$metadata ?? {}
+        }
+      }
+      else {
+        // LSU
+
+        if (!data.amount.eq(ZERO)) {
+          if (data.fungibleDetails?.$details.native_resource_details?.kind === 'ValidatorLiquidStakeUnit' && !data.amount.eq(ZERO)) {
+            const lsu: LSUCollateral = {
+              resourceAddress: address,
+              amount: data.amount,
+              unitRedemptionValue: dec(data.fungibleDetails?.$details.native_resource_details?.unit_redemption_value[0]?.amount ?? '0'),
+              validatorAddress: data.fungibleDetails?.$details.native_resource_details?.validator_address,
+              metadata: data.fungibleDetails?.$metadata,
+              validatorMetadata: {},
+            }
+
+            lsuCollaterals.push(lsu)
+            allValidatorAddressesSet.add(lsu?.validatorAddress)
+          }
+        }
+      }
+    })
+
+    const claimNftCollaterals: ClaimNFTCollateral[] = []
+
+    Object.entries(lendingMarketComponentState?.$nonFungibleResources.values ?? {}).forEach(([address, data]) => {
+      const ids = data.ids ?? []
+
+      if (ids.length === 0) {
+        return
+      }
+
+      if (data.nonFungibleDetails?.$details.native_resource_details?.kind === 'ValidatorClaimNft') {
+        const claimNft: ClaimNFTCollateral = {
+          resourceAddress: address,
+          ids,
+          validatorAddress: data.nonFungibleDetails?.$details.native_resource_details?.validator_address,
+          metadata: data.nonFungibleDetails?.$metadata,
+          validatorMetadata: {},
+        }
+
+        claimNftCollaterals.push(claimNft)
+        allValidatorAddressesSet.add(claimNft?.validatorAddress)
+      }
+    })
+
+    const resourceWithoutDetails = collateralResources.filter(resource => Object.keys(resource.metadata).length === 0).map(resource => resource.resourceAddress)
+
+    const res = await Promise.all([
+      this.getFetcher().fetchResourceState(resourceWithoutDetails),
+      this.getFetcher().fetchEntityState([...allValidatorAddressesSet], {
+        loadState: true,
+        loadResourceDetails: false,
+        recursiveFungibleResourceLoading: false,
+        recursiveNonFungibleResourceLoading: false,
+      }),
+    ])
+
+    res[0].forEach((res) => {
+      if (res.$type === 'FungibleResource') {
+        const index = collateralResources.findIndex(collateralResource =>
+          collateralResource.resourceAddress === res.$entityAddress,
+        )
+
+        collateralResources[index]!.metadata = res.$metadata
+      }
+    })
+
+    res[1].forEach((state) => {
+      const lsuIndex = lsuCollaterals.findIndex(l => l.validatorAddress === state.$entityAddress)
+
+      if (lsuIndex > -1) {
+        lsuCollaterals[lsuIndex]!.validatorMetadata = state.$metadata
+      }
+
+      const claimNftIndex = claimNftCollaterals.findIndex(l => l.validatorAddress === state.$entityAddress)
+
+      if (claimNftIndex > -1) {
+        claimNftCollaterals[claimNftIndex]!.validatorMetadata = state.$metadata
+      }
+    })
+
+    const globalMarketService = marketState.marketServiceStatus
+    const globalLendingService = lendingInfo.globalLendingService
+    const globalLoanService = loanServiceManagerEntries.getValue(`Global`)!
+    const globalCollateralService: GlobalCollateralService = {
+      resource: collateralServiceManagerEntries.getValue(`GlobalResource`)!,
+      lsu: collateralServiceManagerEntries.getValue(`GlobalNFT`)!,
+      nft: collateralServiceManagerEntries.getValue(`GlobalClaimNFT`)!,
+      claimNft: collateralServiceManagerEntries.getValue(`GlobalLSU`)!,
+    }
+
+    const marketConfig: MarketConfig = marketState!.config
+    const marketFeeConfig: MarketProtocolFeeConfig = marketState!.feeConfig
+
+    return {
+      marketConfig,
+      marketFeeConfig,
+      loanResources,
+      collateralResources,
+      globalMarketService,
+      globalLendingService,
+      globalLoanService,
+      globalCollateralService,
+      lsuCollaterals,
+      claimNftCollaterals,
+
+      allFungibleResourceAddresses: [...allFungibleResourceAddressesSet],
+      allValidatorAddresses: [...allValidatorAddressesSet],
+    }
+  }
+
+  async getMultipleCdp(ids: string[], options: { cdpPerBatch?: number, onProgress?: (fetched: number) => void } = {}): Promise<FetchResult> {
+    const result = await this.cdpRecursiveIndexer(ids, async (ids: string[]) => this.getCdpDataInternal(ids, options))
+
+    return result
+  }
+
+  async getSingleCdp(id: string, preManifest: string): Promise<CollateralizeDebtPositionData> {
+    const manifest = `
+    ${preManifest}
+    CALL_METHOD Address("${LENDING_MARKET_COMPONENT}") "get_cdp" Array<NonFungibleLocalId>(NonFungibleLocalId("${id}"));\n
+    `
+
+    const response: TransactionPreviewResponse = await
+    this.radixGatewayApi.transaction.innerClient.transactionPreview({
+      transactionPreviewRequest: { ...this.baseTransactionParams(), manifest },
+    })
+
+    if ((response.receipt as any).status !== 'Succeeded') {
+      throw new Error((response.receipt as any).error_message)
+    }
+
+    const outputs = (response.receipt as any).output as any[]
+
+    const receipt = outputs[outputs.length - 1].programmatic_json.entries[0]
+    const cdp: CollateralizeDebtPositionData = this.decodeCDP(receipt.key.value, receipt.value.fields)
+
+    return cdp
+  }
+
+  async getPrice(resources: string[] | undefined = defaultLendingPools, resourcesPerBatch: number = 10): Promise<{ resourceAddress: string, price: Decimal }[]> {
+    const batchedResources: string[][] = []
+
+    for (let i = 0; i < resources.length; i += resourcesPerBatch) {
+      batchedResources.push(resources.slice(i, i + resourcesPerBatch).map(resource => `Address("${resource}")`))
+    }
+
+    const prices: { resourceAddress: string, price: Decimal }[] = []
+
+    const manifests = batchedResources.map(
+      batchedResource => `CALL_METHOD Address("${LENDING_MARKET_COMPONENT}") "get_price" Array<Address>(${batchedResource.join(',')});\n`,
+    )
+
+    const response: TransactionPreviewResponse[] = await Promise.all(manifests.map(manifest =>
+      this.radixGatewayApi.transaction.innerClient.transactionPreview({
+        transactionPreviewRequest: { ...this.baseTransactionParams(), manifest },
+      }),
+    ))
+
+    const receipts = response
+      .map((r) => {
+        if ((r.receipt as any).status !== 'Succeeded') {
+          throw new Error((r.receipt as any).error_message)
+        }
+
+        return (r.receipt as any).output[0].programmatic_json.entries
+      })
+      .flat()
+
+    receipts.forEach((r) => {
+      prices.push({
+        resourceAddress: r.key.value,
+        price: dec(r.value.value),
+      })
+    })
+
+    return prices
+  }
+
+  private async getResourcePoolAtLedgerState(ledgerStateSelector?: LedgerStateSelector): Promise<ReturnedResourcePoolState[]> {
+    const kvs = new KeyValueStore<string, ResourcePoolState>(LENDING_POOL_RESOURCE_POOL_KVS, this.stateFetcher)
+
+    await kvs.init(ledgerStateSelector)
+
+    const results: ReturnedResourcePoolState[] = Object.entries(kvs.values)?.map(([res, pooState]) => {
+      const totalLoan = pooState.loanState.total
+      const loanUnitRatio = pooState.loanState.unitRatio
+      const totalDeposit = pooState.depositState.total
+      const depositUnitRatio = pooState.depositState.unitRatio
+
+      const borrowingApr = dec(pooState.interestRate)
+
+      const rawLendingApr = borrowingApr.mul(totalLoan).div(totalDeposit)
+      const netLendingApr = rawLendingApr.mul(dec(1).sub(PROTOCOL_INTEREST_SHARE))
+
+      const interestModelId: string = resourceToDuMapping.get(res)?.interestModel ?? '0'
+
+      const remap: ReturnedResourcePoolState = {
+        resourceAddress: res,
+        depositUnitAddress: resourceToDuMapping.get(res)!.du,
+        totalDeposit,
+        totalLoan,
+        utilizationRate: totalLoan.div(totalDeposit),
+        borrowingApr,
+        rawLendingApr,
+        netLendingApr,
+        depositUnitRatio,
+        depositUnitPrice: dec(1).div(depositUnitRatio),
+        loanUnitRatio,
+        loanUnitPrice: dec(1).div(loanUnitRatio),
+        interestModelId,
+        config: pooState.poolConfig,
+        serviceStatus: undefined,
+      }
+
+      return remap
+    })
+
+    return results
+  }
+
+  async getPriceAtLedgerState(resources: string[], ledgerStateSelector?: LedgerStateSelector): Promise<{ resourceAddress: any, price: Decimal }[]> {
+    const kvs = new KeyValueStore<string, { cachedValue: Decimal, timestamp: number }>(LENDING_MARKET_PRICE_CACHE_KVS, this.stateFetcher)
+
+    await kvs.init(ledgerStateSelector)
+
+    const price = resources.reduce((acc, resource) => {
+      const cachedValue = kvs.getValue(resource)
+      if (cachedValue) {
+        acc.push({ resourceAddress: resource, price: cachedValue.cachedValue })
+      }
+      return acc
+    }, [] as { resourceAddress: any, price: Decimal }[])
+
+    return price
+  }
+
+  async getInterestModels(ledgerStateSelector?: LedgerStateSelector): Promise<{ id: string, model: InterestStrategy }[]> {
+    const kvs = new KeyValueStore<string, any>(LENDING_POOL_INTEREST_STRATEGY_KVS, this.stateFetcher)
+    await kvs.init(ledgerStateSelector)
+
+    const models = Object.entries(kvs.values).map(([key, value]) => ({
+      id: key.replace('Current_', ''),
+      model: new InterestStrategy(value.entry.breakPoints ?? [], value.entry.description),
+    }))
+
+    return models
+  }
+
+  /// EXTRA FEATURES
+
+  async getCdpIds(returnBurntTokens: boolean = false): Promise<StateNonFungibleLocationResponseItem[]> {
+    let nonFungibleLocalIds: StateNonFungibleLocationResponseItem[] = []
+    let nextCursor: string | null | undefined
+    let at_ledger_state
+
+    do {
+      const res = await this.radixGatewayApi.state.innerClient.nonFungibleIds({
+        stateNonFungibleIdsRequest: {
+          resource_address: CDP_RESOURCE,
+          cursor: nextCursor,
+          at_ledger_state: at_ledger_state === undefined
+            ? null
+            : {
+                state_version: at_ledger_state,
+              },
+        },
+      })
+
+      const locationRes = await this.radixGatewayApi.state.innerClient.nonFungibleLocation({
+        stateNonFungibleLocationRequest: {
+          resource_address: CDP_RESOURCE,
+          non_fungible_ids: res.non_fungible_ids.items,
+        },
+      })
+
+      nonFungibleLocalIds = nonFungibleLocalIds.concat(
+        locationRes.non_fungible_ids.filter(item => item.is_burned === returnBurntTokens),
+      )
+
+      nextCursor = res.non_fungible_ids.next_cursor
+      at_ledger_state = res.ledger_state.state_version
+    } while (nextCursor)
+
+    return nonFungibleLocalIds
+  }
+
+  async getWeftStakingApr(): Promise<{ apr: number, staked: number, tvl_xrd: number, tvl_usd: number }> {
+    const emptyResult = { apr: 0, staked: 0, tvl_xrd: 0, tvl_usd: 0 }
+
+    // Fetch prices and pool stats in parallel
+    const [prices, poolStats] = await Promise.all([
+      this.getPrice([WEFT_RESOURCE, ...defaultLendingPools]),
+      this.getPoolInfos(),
+    ])
+
+    // Create price map
+    const priceMap = new Map(prices.map(p => [p.resourceAddress, dec(p.price)]))
+
+    const xusdcPrice = priceMap.get(XUSDC_RESOURCE)
+    if (!xusdcPrice)
+      return emptyResult
+
+    // Calculate total lending value and weighted APR
+    let totalLendingDepositsUSD = dec(0)
+    let weighedApr = dec(0)
+
+    for (const pool of poolStats.pools) {
+      const price = priceMap.get(pool.resourceAddress)
+      if (!price)
+        continue
+
+      const depositUSD = dec(pool.totalDeposit).mul(price)
+      totalLendingDepositsUSD = totalLendingDepositsUSD.add(depositUSD)
+      weighedApr = weighedApr.add(dec(pool.netLendingApr).mul(depositUSD))
+    }
+
+    if (totalLendingDepositsUSD.eq(0))
+      return emptyResult
+
+    const averageLendingApr = weighedApr.div(totalLendingDepositsUSD)
+
+    // Get total Weft supply from component
+    const { items } = await this.radixGatewayApi.state.innerClient.entityFungiblesPage({
+      stateEntityFungiblesPageRequest: { address: WEFT_STAKING_COMPONENT },
+    })
+
+    const weftData = items.find(i => i.resource_address === WEFT_RESOURCE)
+    if (!weftData || weftData.aggregation_level !== 'Global')
+      return emptyResult
+
+    const stakedWeftAmount = dec(weftData.amount)
+    const weftPrice = priceMap.get(WEFT_RESOURCE)
+    if (!weftPrice || stakedWeftAmount.eq(0))
+      return emptyResult
+
+    const stakedWeftValueUSD = stakedWeftAmount.mul(weftPrice)
+
+    // Final staking APR calculation
+    const stakingApr = averageLendingApr.mul(totalLendingDepositsUSD).mul(PROTOCOL_INTEREST_SHARE).mul(STAKEHOLDER_REWARD_SHARE).div(stakedWeftValueUSD)
+
+    return { apr: stakingApr.toNumber(), staked: stakedWeftAmount.toNumber(), tvl_xrd: stakedWeftValueUSD.toNumber(), tvl_usd: stakedWeftValueUSD.div(xusdcPrice).toNumber() }
+  }
+
+  /// PRIVATE METHODS
+
+  private async getCdpDataInternal(ids: string[], options: { cdpPerBatch?: number, onProgress?: (fetched: number) => void } = { }): Promise<CollateralizeDebtPositionData[]> {
+    const batchedIds: string[][] = []
+    const cdpPerBatch = options.cdpPerBatch ?? 10
+
+    for (let i = 0; i < ids.length; i += cdpPerBatch) {
+      batchedIds.push(ids.slice(i, i + cdpPerBatch).map(id => `NonFungibleLocalId("${id}")`))
+    }
+
+    const cdps: CollateralizeDebtPositionData[] = []
+
+    const manifests = batchedIds.map(
+      batchedId => `CALL_METHOD Address("${LENDING_MARKET_COMPONENT}") "get_cdp" Array<NonFungibleLocalId>(${batchedId.join(',')});\n`,
+    )
+
+    const response: TransactionPreviewResponse[] = await Promise.all(manifests.map(manifest =>
+      this.radixGatewayApi.transaction.innerClient.transactionPreview({
+        transactionPreviewRequest: { ...this.baseTransactionParams(), manifest },
+      }),
+    ))
+
+    const receipts = response
+      .map((r) => {
+        if ((r.receipt as any).status !== 'Succeeded') {
+          throw new Error((r.receipt as any).error_message)
+        }
+
+        return (r.receipt as any).output[0].programmatic_json.entries
+      })
+      .flat()
+
+    receipts.forEach((r) => {
+      cdps.push(this.decodeCDP(r.key.value, r.value.fields))
+    })
+
+    if (options.onProgress)
+      options.onProgress(cdps.length)
+
+    return cdps
+  }
+
+  private async cdpRecursiveIndexer(
+    ids: string[],
+    fetchData: (ids: string[]) => Promise<CollateralizeDebtPositionData[]>,
+  ): Promise<FetchResult> {
+    if (ids.length === 0)
+      return { data: [], failedIds: [] }
+
+    try {
+      const data = await fetchData(ids)
+      return { data, failedIds: [] }
+    }
+    catch {
+      if (ids.length === 1) {
+        return { data: [], failedIds: ids }
+      }
+
+      const mid = Math.floor(ids.length / 2)
+
+      const [left, right] = await Promise.all([
+        this.cdpRecursiveIndexer(ids.slice(0, mid), fetchData),
+        this.cdpRecursiveIndexer(ids.slice(mid), fetchData),
+      ])
+
+      const data = [...left.data, ...right.data]
+
+      return {
+        data,
+        failedIds: [...left.failedIds, ...right.failedIds],
+      }
+    }
+  }
+
+  private async getResourcePoolLive(resources: string[] | undefined = defaultLendingPools): Promise<ReturnedResourcePoolState[]> {
+    const resInput = resources.map(o => `Address("${o}")`).join(',')
+
+    const manifest = `
+    CALL_METHOD Address("${LENDING_POOL_COMPONENT}") "get_pool_state" Array<Address>(${resInput});\n
+    CALL_METHOD Address("${LENDING_POOL_COMPONENT}") "get_pool_config" Array<Address>(${resInput});\n
+    `
+
+    const res: TransactionPreviewResponse = await
+    this.radixGatewayApi.transaction.innerClient.transactionPreview({
+      transactionPreviewRequest: { ...this.baseTransactionParams(), manifest },
+    })
+
+    if ((res.receipt as any).status !== 'Succeeded') {
+      throw new Error((res.receipt as any).error_message)
+    }
+
+    const stateOutput: any[] = (res.receipt as any).output[0].programmatic_json.entries
+    const configOutput: any[] = (res.receipt as any).output[1].programmatic_json.entries
+
+    const result: Record<string, { state: any, config: any }> = {}
+
+    if (!stateOutput || !configOutput) {
+      throw new Error('Failed to retrieve state')
+    }
+
+    for (let i = 0; i < stateOutput.length; i++) {
+      const state = stateOutput[i]
+
+      if (state.value.variant_id === 0) {
+        continue
+      }
+
+      if (!result[state.key.value]) {
+        result[state.key.value] = {
+          state: {},
+          config: {},
+        }
+      }
+
+      const res = state.key.value
+
+      result[res]!.state = state.value.fields[0]
+    }
+
+    for (let i = 0; i < configOutput.length; i++) {
+      const config = configOutput[i]
+
+      if (config.key.variant_id === 0) {
+        continue
+      }
+
+      if (!result[config.key.value]) {
+        result[config.key.value] = {
+          state: {},
+          config: {},
+        }
+      }
+
+      const res = config.key.value
+
+      result[res]!.config = config.value.fields[0]
+    }
+
+    const pools: ReturnedResourcePoolState[] = []
+
+    for (const [res, { state, config }] of Object.entries(result)) {
+      // Config
+
+      const poolConfig: ResourcePoolConfig = {
+        interestUpdatePeriod: config.fields[0].value,
+        loanFeeRate: config.fields[1].value,
+        flashLoanFeeRate: config.fields[2].value,
+        depositLimit: config.fields[3].variant_id === '0'
+          ? { variantName: 'None' }
+          : config.fields[3].variant_id === '1'
+            ? { variantName: 'Amount', value: config.fields[3].fields[0].value }
+            : { variantName: 'SupplyRatio', value: config.fields[3].fields[0].value },
+        utilizationLimit: config.fields[4].variant_id === '0'
+          ? undefined
+          : config.fields[4].fields[0].value,
+        flashLoanAmountLimit: config.fields[5].variant_id === '0'
+          ? { variantName: 'None' }
+          : config.fields[5].variant_id === '1'
+            ? { variantName: 'Amount', value: config.fields[5].fields[0].value }
+            : { variantName: 'SupplyRatio', value: config.fields[5].fields[0].value },
+      }
+
+      // State
+
+      const totalLoan = dec(state.fields[2].fields[1].value)
+      const loanUnitRatio = dec(state.fields[2].fields[3].value)
+      const totalDeposit = dec(state.fields[1].fields[1].value)
+      const depositUnitRatio = dec(state.fields[1].fields[3].value)
+
+      const borrowingApr = dec(state.fields[0].value)
+
+      const rawLendingApr = borrowingApr.mul(totalLoan).div(totalDeposit)
+      const netLendingApr = rawLendingApr.mul(dec(1).sub(PROTOCOL_INTEREST_SHARE))
+
+      // interest model :
+
+      const interestModelId: string = resourceToDuMapping.get(res)?.interestModel ?? '0'
+
+      pools.push({
+        resourceAddress: res,
+        depositUnitAddress: resourceToDuMapping.get(res)!.du,
+        totalDeposit,
+        totalLoan,
+        utilizationRate: totalLoan.div(totalDeposit),
+        borrowingApr,
+        rawLendingApr,
+        netLendingApr,
+        depositUnitRatio,
+        depositUnitPrice: dec(1).div(depositUnitRatio),
+        loanUnitRatio,
+        loanUnitPrice: dec(1).div(loanUnitRatio),
+        interestModelId,
+        config: poolConfig,
+      })
+    }
+
+    return pools
+  }
+
+  private decodeCDP(id: string, encodedCDP: any): CollateralizeDebtPositionData {
+    const cdp: CollateralizeDebtPositionData = {
+      id,
+      totalLoanValue: dec(encodedCDP[0].value),
+      totalAdjustedLoanValue: dec(encodedCDP[1].value),
+      totalCollateralValue: dec(encodedCDP[2].value),
+      totalHealthCollateralValue: dec(encodedCDP[3].value),
+      totalLiquidationCollateralValue: dec(encodedCDP[4].value),
+      collateralIsolationGroups: [],
+      loanExcludedIsolationGroups: [],
+      healthLtv: dec(encodedCDP[7].value),
+      liquidationLtv: dec(encodedCDP[8].value),
+      discountedNftCollateralValue: dec(encodedCDP[9].value),
+      discountedCollateralValue: dec(encodedCDP[10].value),
+      loanPositions: {},
+      collateralPositions: {},
+      nftCollateralPositions: {},
+    }
+
+    const loans: Record<string, LoanPositionData> = {}
+
+    encodedCDP[11].entries.forEach((loan: any) => {
+      const loanData: any[] = loan.value.fields
+
+      loans[loan.key.value] = {
+        price: dec(loanData[0].value),
+        units: dec(loanData[1].value),
+        amount: dec(loanData[2].value),
+        value: dec(loanData[3].value),
+        adjustedValue: dec(loanData[4].value),
+        config: {
+          description: loanData[5].fields[0].value,
+          loanValueFactor: dec(loanData[5].fields[1].value),
+          loanCloseFactor: dec(loanData[5].fields[2].value),
+        },
+        configVersion: Number.parseInt(loanData[6].value),
+        resourceConfig: {
+          loanConfigId: Number.parseInt(loanData[7].fields[0].value),
+          excludedIsolationGroupIds: [],
+          efficiencyGroupId: loanData[7].fields[2].variant_id === '0'
+            ? undefined
+            : Number.parseInt(loanData[7].fields[2].fields[0].value),
+        },
+      }
+    })
+
+    cdp.loanPositions = loans
+
+    const collaterals: Record<string, CollateralPositionData> = {}
+
+    encodedCDP[12].entries.forEach((collateral: any) => {
+      const collateralData: any[] = collateral.value.fields
+
+      collaterals[collateral.key.value] = {
+        price: dec(collateralData[0].value),
+        amount: dec(collateralData[1].value),
+        value: dec(collateralData[2].value),
+        healthValue: dec(collateralData[3].value),
+        liquidationValue: dec(collateralData[4].value),
+        discountedValue: dec(collateralData[5].value),
+        config: {
+          description: collateralData[6].fields[0].value,
+          loanToValueRatio: dec(collateralData[6].fields[1].value),
+          liquidationThresholdSpread: dec(collateralData[6].fields[2].value),
+          liquidationBonusRate: dec(collateralData[6].fields[3].value),
+        },
+        configVersion: {
+          entryVersion: Number.parseInt(collateralData[7].fields[0].value),
+          efficiencyMode: {
+            variantId: collateralData[7].fields[1].variant_id,
+            efficiencyGroupId: collateralData[7].fields[1].variant_id !== '1'
+              ? undefined
+              : Number.parseInt(collateralData[7].fields[1].fields[0].value),
+          },
+        },
+        resourceConfig: {
+          collateralConfigId: Number.parseInt(collateralData[8].fields[0].value),
+          isolationGroupId: undefined,
+          efficiencyGroupIds: collateralData[8].fields[2].elements.map((e: any) => Number.parseInt(e.value)),
+        },
+        isFromNft: false,
+        resourceType: collateralData[10].variant_id === '0'
+          ? { variantName: 'RegisteredToken' }
+          : collateralData[10].variant_id === '1'
+            ? { variantName: 'LSU', value: collateralData[10].fields[0].value }
+            : { variantName: 'DepositUnit', value: collateralData[10].fields[0].value },
+      }
+    })
+
+    cdp.collateralPositions = collaterals
+
+    /// NFT Collaterals
+    const nftCollaterals: Record<string, NFTCollateralPositionData> = {}
+
+    encodedCDP[13].entries.forEach((nftCollateral: any) => {
+      const nft_res_address = nftCollateral.key.value
+
+      const nft_entries: any[] = nftCollateral.value.entries
+
+      nft_entries.forEach((underlyingCollateral: any) => {
+        const nft_id = underlyingCollateral.key.value
+
+        const nftCollateralData: any[] = underlyingCollateral.value.fields
+
+        // 0: Underlying resources
+
+        const underlyingResources: Record<string, CollateralPositionData> = {}
+
+        nftCollateralData[0].entries.forEach((collateral: any) => {
+          const collateralData: any[] = collateral.value.fields
+
+          underlyingResources[collateral.key.value] = {
+            price: dec(collateralData[0].value),
+            amount: dec(collateralData[1].value),
+            value: dec(collateralData[2].value),
+            healthValue: dec(collateralData[3].value),
+            liquidationValue: dec(collateralData[4].value),
+            discountedValue: dec(collateralData[5].value),
+            config: {
+              description: collateralData[6].fields[0].value,
+              loanToValueRatio: dec(collateralData[6].fields[1].value),
+              liquidationThresholdSpread: dec(collateralData[6].fields[2].value),
+              liquidationBonusRate: dec(collateralData[6].fields[3].value),
+            },
+            configVersion: {
+              entryVersion: Number.parseInt(collateralData[7].fields[0].value),
+              efficiencyMode: collateralData[7].fields[1].variant_id,
+            },
+            resourceConfig: {
+              collateralConfigId: Number.parseInt(collateralData[8].fields[0].value),
+              isolationGroupId: undefined,
+              efficiencyGroupIds: collateralData[8].fields[2].elements.map((e: any) => Number.parseInt(e.value)),
+            },
+            isFromNft: true,
+            resourceType: collateralData[10].variant_id === '0'
+              ? { variantName: 'RegisteredToken' }
+              : collateralData[10].variant_id === '1'
+                ? { variantName: 'LSU', value: collateralData[10].fields[0].value }
+                : { variantName: 'DepositUnit', value: collateralData[10].fields[0].value },
+          }
+        })
+
+        // 1: NFT Value
+
+        const nftValue: NFTLiquidationValue = {
+          value: dec(nftCollateralData[1].fields[0].value),
+          discountedValue: dec(nftCollateralData[1].fields[1].value),
+          loanPaymentValue: dec(nftCollateralData[1].fields[2].value),
+          compensationValue: dec(nftCollateralData[1].fields[3].value),
+          liquidationFee: dec(nftCollateralData[1].fields[4].value),
+          resourceType: nftCollateralData[1].fields[5].variant_id === '0'
+            ? { variantName: 'RegisteredNFT' }
+            : { variantName: 'ClaimNFT', value: nftCollateralData[1].fields[5].fields[0].value },
+        }
+
+        const nFTCollateralPositionData: NFTCollateralPositionData = {
+          underlyingPositions: underlyingResources,
+          value: nftValue,
+          maxAllowedDiscountedValue: dec(nftCollateralData[2].value),
+        }
+
+        nftCollaterals[`${nft_res_address}:${nft_id}`] = nFTCollateralPositionData
+      })
+    })
+
+    cdp.nftCollateralPositions = nftCollaterals
+
+    return cdp
+  }
+
+  private baseTransactionParams(): TransactionPreviewRequest {
+    return {
+      manifest: '',
+      start_epoch_inclusive: 1,
+      end_epoch_exclusive: 255,
+      tip_percentage: 0,
+      nonce: 1234567890,
+      signer_public_keys: [{
+        key_type: 'EcdsaSecp256k1',
+        key_hex: '02a1b3f9482e376b3e5fd2f48a2c4a679c6cf2c8f7b2dd12c14f75d15df3ac59d1', // Random public key
+      }],
+      flags: {
+        use_free_credit: true,
+        assume_all_signature_proofs: true,
+        skip_epoch_check: true,
+      },
+      opt_ins: {
+        radix_engine_toolkit_receipt: true,
+      },
+    }
+  }
+}

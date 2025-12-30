@@ -1,0 +1,33 @@
+{
+  "name": "@weft-finance/ledger-state",
+  "type": "commonjs",
+  "version": "0.0.16",
+  "description": "Lending pool V2 lite SDK for ledger state fetching",
+  "author": {
+    "name": "Weft Finance",
+    "email": "community@weft.finance"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint . --fix",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typo-check": "cspell -c ../../cspell.json . --quiet",
+    "test": "bun test",
+    "pre-release": "pnpm run lint && pnpm run typo-check && pnpm test",
+    "release": "pnpm pre-release && pnpm build && npm publish"
+  },
+  "dependencies": {
+    "@radixdlt/babylon-gateway-api-sdk": "^1.10.1",
+    "decimal.js": "^10.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
