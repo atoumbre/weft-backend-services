@@ -9,7 +9,7 @@ COPY services/indexer ./services/indexer
 COPY aws-wrappers/indexer-container ./aws-wrappers/indexer-container
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Build packages (Turborepo handles order implicitly, but we can call bun run build on each)
 RUN cd packages/common-utils && bun run build && \
@@ -36,7 +36,7 @@ COPY --from=builder /app/packages/common-utils/dist ./packages/common-utils/dist
 COPY --from=builder /app/services/indexer/dist ./services/indexer/dist
 
 # Install production dependencies only
-RUN bun install --frozen-lockfile --production
+RUN bun install --production
 
 WORKDIR /app/aws-wrappers/indexer-container
 
