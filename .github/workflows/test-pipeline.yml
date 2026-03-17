@@ -28,4 +28,4 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Build & Test
-        run: pnpm turbo run build test
+        run: bun run turbo build test

@@ -24,24 +24,7 @@ runs:
       with:
         bun-version: ${{ inputs.bun-version }}
 
-    - name: Enable Corepack & Setup PNPM
-      shell: bash
-      run: corepack enable && corepack prepare pnpm@latest --activate
-
-    - name: Get PNPM store directory
-      id: pnpm-cache
-      shell: bash
-      run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-    - name: Setup PNPM cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
-
-    - name: Setup Turbo cache
+    - name: Setup turbo cache
       uses: actions/cache@v4
       with:
         path: .turbo
@@ -51,4 +34,4 @@ runs:
 
     - name: Install Dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: bun install --frozen-lockfile

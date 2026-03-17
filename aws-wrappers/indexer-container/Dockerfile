@@ -1,36 +1,29 @@
-FROM node:22-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
-
 # Copy workspace files
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.json tsup.config.ts ./
+COPY package.json bun.lock tsconfig.json tsup.config.ts ./
 COPY packages/common-utils ./packages/common-utils
 COPY services/indexer ./services/indexer
 COPY aws-wrappers/indexer-container ./aws-wrappers/indexer-container
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
-# Build packages in dependency order (combined to avoid stale cache issues)
-RUN pnpm --filter @local-packages/common-utils build && \
-    pnpm --filter @local-service/indexer build && \
-    pnpm --filter @local-wrapper/indexer-container build
+# Build packages (Turborepo handles order implicitly, but we can call bun run build on each)
+RUN cd packages/common-utils && bun run build && \
+    cd ../../services/indexer && bun run build && \
+    cd ../../aws-wrappers/indexer-container && bun run build
 
 # Production stage
-FROM node:22-alpine
+FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-# Install pnpm for deploy command
-RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
-
-# Copy workspace structure for pnpm install
-COPY --from=builder /app/pnpm-workspace.yaml ./
+# Copy package configurations
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/bun.lock ./
 
 # Copy package.json files for all required packages
 COPY --from=builder /app/aws-wrappers/indexer-container/package.json ./aws-wrappers/indexer-container/
@@ -43,9 +36,9 @@ COPY --from=builder /app/packages/common-utils/dist ./packages/common-utils/dist
 COPY --from=builder /app/services/indexer/dist ./services/indexer/dist
 
 # Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+RUN bun install --frozen-lockfile --production
 
 WORKDIR /app/aws-wrappers/indexer-container
 
-# Run the worker
-CMD ["node", "dist/index.js"]
+# Run the worker using bun
+CMD ["bun", "run", "dist/index.js"]

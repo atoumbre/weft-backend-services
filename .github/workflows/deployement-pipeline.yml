@@ -54,7 +54,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Build & Test (affected only)
-        run: pnpm turbo run build test --filter='...[HEAD~1]'
+        run: bun run turbo build test --filter='...[HEAD~1]'
 
   # Deploy Lambda functions
   deploy-lambdas:
@@ -75,7 +75,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Bundle ${{ matrix.lambda.name }}
-        run: pnpm turbo run bundle --filter=@local-wrapper/${{ matrix.lambda.wrapper }}
+        run: bun run turbo bundle --filter=@local-wrapper/${{ matrix.lambda.wrapper }}
 
       - name: Package
         run: cd aws-wrappers/${{ matrix.lambda.wrapper }} && zip -r lambda.zip dist

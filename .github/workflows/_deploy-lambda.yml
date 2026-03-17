@@ -49,7 +49,7 @@ jobs:
           bun-version: ${{ inputs.bun-version }}
 
       - name: Bundle
-        run: pnpm run bundle
+        run: bun run bundle
         working-directory: aws-wrappers/${{ inputs.wrapper-name }}
 
       - name: Package Lambda
