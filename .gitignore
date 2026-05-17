@@ -8,6 +8,7 @@ build/
 # Environment variables
 .env
 .env.local
+.dev.vars
 
 # System files
 .DS_Store
@@ -43,3 +44,4 @@ services/functions/oracle-updater/.trigger
 # Misc
 *.sh
 .turbo
+.wrangler/

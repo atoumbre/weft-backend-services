@@ -5,8 +5,9 @@ import { describe, expect, it } from 'bun:test'
 import { ASSETS, AstrolescentPlugin, CaviarNinePlugin, CoinGeckoPlugin, optionalEnv, PythPlugin } from '../src'
 
 const logger = createLogger({ service: 'oracle-updater-plugin-test' })
+const describeIntegration = process.env.RUN_PRICE_UPDATER_INTEGRATION === 'true' ? describe : describe.skip
 
-describe(' Integration Tests (Real Data)', () => {
+describeIntegration('Integration Tests (Real Data)', () => {
   const timeoutMs = 15000
   const options = { timeoutMs }
 

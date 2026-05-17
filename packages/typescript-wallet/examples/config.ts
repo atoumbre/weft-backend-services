@@ -1,5 +1,5 @@
-import { walletLogger } from '../src'
 import { getRadixEngineClient } from '../src/clients'
+import { walletLogger } from '../src/helpers/logger'
 import 'dotenv/config'
 
 if (!process.env.MNEMONIC)

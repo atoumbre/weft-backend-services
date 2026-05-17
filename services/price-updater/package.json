@@ -7,6 +7,31 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./assets": {
+      "types": "./dist/assets.d.ts",
+      "import": "./dist/assets.mjs",
+      "require": "./dist/assets.js"
+    },
+    "./execution": {
+      "types": "./dist/execution/index.d.ts",
+      "import": "./dist/execution/index.mjs",
+      "require": "./dist/execution/index.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "import": "./dist/plugins/index.mjs",
+      "require": "./dist/plugins/index.js"
+    },
+    "./pricing": {
+      "types": "./dist/pricing/index.d.ts",
+      "import": "./dist/pricing/index.mjs",
+      "require": "./dist/pricing/index.js"
+    },
+    "./transactions": {
+      "types": "./dist/transactions/index.d.ts",
+      "import": "./dist/transactions/index.mjs",
+      "require": "./dist/transactions/index.js"
     }
   },
   "main": "dist/index.js",
@@ -17,7 +42,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@local-packages/common-utils": "workspace:*"
+    "@local-packages/common-utils": "workspace:*",
+    "@local-packages/typescript-wallet": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",

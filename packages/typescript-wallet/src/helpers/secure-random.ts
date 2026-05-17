@@ -1,5 +1,5 @@
-import crypto from 'node:crypto'
+import { bytesToHex, randomBytes } from '@noble/hashes/utils'
 
 export function secureRandom(byteCount: number): string {
-  return crypto.randomBytes(byteCount).toString('hex')
+  return bytesToHex(randomBytes(byteCount))
 }

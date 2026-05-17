@@ -84,7 +84,7 @@ export function getRadixEngineClient({
   if (result.isErr())
     throw result.error
 
-  const { signerPublicKey, signerPrivateKey } = result.value[0]
+  const { signerPublicKey, signerPrivateKey, publicKeyHex: signerPublicKeyHex } = result.value[0]
 
   const gatewayClient = getGatewayClient(networkConfig)
 
@@ -304,5 +304,6 @@ export function getRadixEngineClient({
     convertStringManifest,
     convertParsedManifest,
     getXrdFromFaucet,
+    signerPublicKeyHex,
   }
 }

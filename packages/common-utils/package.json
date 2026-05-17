@@ -6,6 +6,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./log-level": {
+      "types": "./dist/log-level.d.ts",
+      "import": "./dist/log-level.mjs",
+      "require": "./dist/log-level.js"
     }
   },
   "main": "dist/index.js",

@@ -1,8 +1,5 @@
-import type { ILogger, PluginFetchOptions, PriceCurrency, PriceFeedPlugin, PriceFeedResult } from '../plugin-interface'
-import { createLogger } from '@local-packages/common-utils'
+import type { ILogger, PluginFetchOptions, PriceCurrency, PriceFeedPlugin, PriceFeedResult } from './types'
 import { fetchJson, isRecord } from '../utils'
-
-const globalLogger = createLogger({ service: 'oracle-updater' })
 
 export class CaviarNinePlugin implements PriceFeedPlugin {
   name = 'caviarnine'
@@ -52,7 +49,7 @@ export class CaviarNinePlugin implements PriceFeedPlugin {
     url.searchParams.append('sell_resource_address', this.XRD_RESOURCE_ADDRESS)
     url.searchParams.append('buy_resource_address', buyResourceAddress)
 
-    globalLogger.debug(url.toString())
+    localLogger.debug({ event: 'oracle.plugin.caviarnine.request', url: url.toString() })
 
     try {
       const payload = await fetchJson(url.toString(), timeoutMs)

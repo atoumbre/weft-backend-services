@@ -1,6 +1,10 @@
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
 import pino, { stdSerializers } from 'pino'
 import { Logger as TSLogger } from 'tslog'
+import { levelToNumber } from './log-level'
+
+export { isLogLevel, levelToNumber, LOG_LEVELS } from './log-level'
+export type { LogLevel } from './log-level'
 
 export interface ILogger {
   debug: (message: any, ...args: any[]) => void
@@ -79,19 +83,6 @@ export function createLogger(options: LoggerOptions): ILogger {
     })
 
     return wrapTS(tsLogger)
-  }
-}
-
-function levelToNumber(level: string): number {
-  switch (level.toLowerCase()) {
-    case 'silly': return 0
-    case 'trace': return 1
-    case 'debug': return 2
-    case 'info': return 3
-    case 'warn': return 4
-    case 'error': return 5
-    case 'fatal': return 6
-    default: return 3
   }
 }
 

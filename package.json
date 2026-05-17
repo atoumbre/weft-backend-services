@@ -5,10 +5,11 @@
   "workspaces": [
     "services/*",
     "aws-wrappers/*",
+    "cloudflare-wrappers/*",
     "packages/*"
   ],
   "scripts": {
-    "clean": "rm -rf packages/*/dist services/*/dist aws-wrappers/*/dist",
+    "clean": "rm -rf packages/*/dist services/*/dist aws-wrappers/*/dist cloudflare-wrappers/*/dist",
     "build": "bun run turbo build",
     "build:clean": "bun run clean && bun run build",
     "test": "bun run turbo test",

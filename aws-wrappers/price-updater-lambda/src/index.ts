@@ -16,6 +16,10 @@ import { buildManifest, executePriceUpdate } from '@local-service/price-updater'
 
 const logger = createLogger({ service: 'oracle-updater' })
 
+function isDisabledFlag(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === 'true'
+}
+
 // Initialize EnvFactory promise at the global scope to ensure it starts fetching
 // immediately while remaining compatible with CommonJS.
 const envPromise = createEnvFactory({
@@ -43,6 +47,12 @@ export async function handler() {
   const astrolescentBaseUrl = env.optional('ASTROLESCENT_BASE_URL') ?? 'https://api.astrolescent.com/partner/R96v1uADor/prices'
   const timeoutMs = Number(env.optional('PRICE_FETCH_TIMEOUT_MS') ?? '5000')
   const maxPriceAgeSec = env.optional('PYTH_MAX_AGE_SEC')
+  const enabledPlugins = {
+    pyth: !isDisabledFlag(env.optional('DISABLE_PYTH')),
+    caviarnine: !isDisabledFlag(env.optional('DISABLE_CAVIARNINE')),
+    coingecko: !isDisabledFlag(env.optional('DISABLE_COINGECKO')),
+    astrolescent: !isDisabledFlag(env.optional('DISABLE_ASTROLESCENT')),
+  }
 
   try {
     // Call the platform-agnostic service
@@ -56,6 +66,7 @@ export async function handler() {
         maxPriceAgeSec: maxPriceAgeSec ? Number(maxPriceAgeSec) : undefined,
       },
       logger: localLogger,
+      enabledPlugins,
     })
 
     // Build the transaction manifest

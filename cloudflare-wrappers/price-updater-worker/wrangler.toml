@@ -1,0 +1,25 @@
+name = "weft-price-updater"
+main = "dist/index.js"
+compatibility_date = "2026-05-15"
+compatibility_flags = [ "nodejs_compat" ]
+
+[triggers]
+crons = [ "5/10 * * * *" ]
+
+[vars]
+PYTH_HERMES_URL = "https://hermes.pyth.network"
+COINGECKO_BASE_URL = "https://api.coingecko.com"
+CAVIARNINE_BASE_URL = "https://api.caviarnine.com"
+ASTROLESCENT_BASE_URL = "https://api.astrolescent.com/partner/R96v1uADor/prices"
+PRICE_FETCH_TIMEOUT_MS = "5000"
+TRANSACTION_FEE_XRD = "1"
+BADGE_RESOURCE_ADDRESS = "resource_rdx1ngrrjr2ehymym5a3g85x3c8emcs4fph59520qgdsj39ce7plhvtctn"
+ORACLE_COMPONENT_ADDRESS = "component_rdx1czdvvanvdy6495phfgz8uv6n2semp2cpexcg6vvty6uaycc82adgyv"
+BADGE_NFT_ID = "#3#"
+NETWORK_NAME = "Mainnet"
+DRY_RUN = "false"
+DISABLE_CAVIARNINE = "false"
+DISABLE_COINGECKO = "false"
+DISABLE_PYTH = "false"
+DISABLE_ASTROLESCENT = "false"
+LOG_LEVEL = "info" # Minimum log level emitted. One of: debug | info | warn | error. Defaults to 'info'. */

@@ -2,7 +2,30 @@
   "name": "@local-packages/typescript-wallet",
   "type": "module",
   "license": "SEE LICENSE",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./gateway": {
+      "types": "./dist/gateway.d.ts",
+      "import": "./dist/gateway.js",
+      "require": "./dist/gateway.cjs"
+    },
+    "./key-derivation": {
+      "types": "./dist/key-derivation.d.ts",
+      "import": "./dist/key-derivation.js",
+      "require": "./dist/key-derivation.cjs"
+    },
+    "./transactions": {
+      "types": "./dist/transactions.d.ts",
+      "import": "./dist/transactions.js",
+      "require": "./dist/transactions.cjs"
+    }
+  },
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
@@ -19,12 +42,13 @@
     "examples:gw:state:details": "bun ./examples/scripts/gw/state-details.ts"
   },
   "dependencies": {
+    "@noble/ed25519": "^2.3.0",
+    "@noble/hashes": "^1.8.0",
     "@radixdlt/babylon-gateway-api-sdk": "^1.10.1",
     "@radixdlt/radix-engine-toolkit": "^1.0.6",
     "bip39": "^3.1.0",
     "blakejs": "^1.2.1",
     "dotenv": "^16.4.5",
-    "ed25519-hd-key": "^1.3.0",
     "hdkey": "^2.1.0",
     "lodash.chunk": "^4.2.0",
     "neverthrow": "^7.0.0",

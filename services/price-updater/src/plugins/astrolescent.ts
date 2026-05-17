@@ -1,4 +1,4 @@
-import type { ILogger, PluginFetchOptions, PriceCurrency, PriceFeedPlugin, PriceFeedResult } from '../plugin-interface'
+import type { ILogger, PluginFetchOptions, PriceCurrency, PriceFeedPlugin, PriceFeedResult } from './types'
 import { fetchJson, isRecord } from '../utils'
 
 export class AstrolescentPlugin implements PriceFeedPlugin {

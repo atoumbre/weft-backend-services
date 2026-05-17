@@ -1,4 +1,4 @@
-import { walletLogger } from '../src'
+import { walletLogger } from '../src/helpers/logger'
 import { radixEngineClient } from './config'
 
 radixEngineClient

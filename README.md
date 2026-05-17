@@ -1,4 +1,3 @@
-
 # Production-Grade Backend Services for DeFi Liquidation Operations [![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Runtime-Bun-black?style=for-the-badge&logo=bun)](https://bun.sh/) [![AWS](https://img.shields.io/badge/Cloud-AWS-orange?style=for-the-badge&logo=amazon-aws)](https://aws.amazon.com/) [![Radix DLT](https://img.shields.io/badge/DLT-Radix-blue?style=for-the-badge)](https://www.radixdlt.com/)
 
 This repository contains the application services behind **Weft Finance**, a decentralized lending protocol built on **Radix DLT**.
@@ -251,7 +250,6 @@ It demonstrates the ability to:
 * keep core logic decoupled from cloud runtime specifics,
 * design services that remain safe and understandable in asynchronous, failure-prone environments.
 
-
 ---
 
 ## Engineering Highlights
@@ -270,4 +268,3 @@ It demonstrates the ability to:
 Near-term improvements include stronger replay tooling, better failure classification around upstream dependency issues, and richer execution tracing across service boundaries.
 
 Longer term, the service layer can support more advanced historical analysis, deeper simulation workflows, and broader automation around protocol operations as the platform evolves.
-

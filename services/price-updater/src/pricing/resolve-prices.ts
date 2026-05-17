@@ -1,12 +1,42 @@
 import type { ILogger } from '@local-packages/common-utils'
-import type { PluginFetchOptions, PriceCurrency, PriceFeedResult } from './plugin-interface'
-import type { AssetConfig } from './tokens'
-import { PluginRegistry } from './plugin-interface'
-import { AstrolescentPlugin } from './plugins/astrolescent'
-import { CaviarNinePlugin } from './plugins/caviarnine'
-import { CoinGeckoPlugin } from './plugins/coingecko'
-import { PythPlugin } from './plugins/pyth'
-import { ASSETS } from './tokens'
+import type { AssetConfig } from '../assets'
+import type { PluginFetchOptions, PriceCurrency, PriceFeedResult } from '../plugins/types'
+import { ASSETS } from '../assets'
+import { AstrolescentPlugin } from '../plugins/astrolescent'
+import { CaviarNinePlugin } from '../plugins/caviarnine'
+import { CoinGeckoPlugin } from '../plugins/coingecko'
+import { PythPlugin } from '../plugins/pyth'
+import { PluginRegistry } from '../plugins/registry'
+import { normalizeUsdToXrd } from '../utils'
+
+const NORMALIZED_SCALE = 18
+const PLUGIN_PRIORITY = ['pyth', 'caviarnine', 'astrolescent', 'coingecko'] as const
+
+export type PriceSourcePluginName = typeof PLUGIN_PRIORITY[number]
+export type EnabledPriceSourcePlugins = Record<PriceSourcePluginName, boolean>
+
+const DEFAULT_ENABLED_PLUGINS: EnabledPriceSourcePlugins = {
+  pyth: true,
+  caviarnine: true,
+  coingecko: true,
+  astrolescent: true,
+}
+
+function getPluginPriority(pluginName: string): number {
+  const index = PLUGIN_PRIORITY.indexOf(pluginName as PriceSourcePluginName)
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index
+}
+
+function isKnownPluginName(pluginName: string): pluginName is PriceSourcePluginName {
+  return PLUGIN_PRIORITY.includes(pluginName as PriceSourcePluginName)
+}
+
+function resolveEnabledPlugins(enabledPlugins?: Partial<EnabledPriceSourcePlugins>): EnabledPriceSourcePlugins {
+  return {
+    ...DEFAULT_ENABLED_PLUGINS,
+    ...enabledPlugins,
+  }
+}
 
 export interface PriceQuote {
   symbol: string
@@ -27,7 +57,14 @@ export interface PriceResult {
   xrdUsdPrice?: string
 }
 
-const NORMALIZED_SCALE = 18
+export interface PriceUpdateConfig {
+  pythBaseUrl: string
+  coingeckoBaseUrl: string
+  caviarnineBaseUrl: string
+  astrolescentBaseUrl: string
+  timeoutMs: number
+  maxPriceAgeSec?: number
+}
 
 async function resolveAssetPrice(
   asset: AssetConfig,
@@ -40,7 +77,11 @@ async function resolveAssetPrice(
   for (const feed of asset.priceFeeds) {
     const plugin = registry.get(feed.plugin)
     if (!plugin) {
-      localLogger.error({ event: 'oracle.plugin.not_found', symbol: asset.symbol, pluginName: feed.plugin })
+      localLogger[isKnownPluginName(feed.plugin) ? 'debug' : 'error']({
+        event: isKnownPluginName(feed.plugin) ? 'oracle.plugin.disabled' : 'oracle.plugin.not_found',
+        symbol: asset.symbol,
+        pluginName: feed.plugin,
+      })
       continue
     }
 
@@ -78,29 +119,47 @@ async function resolveAssetPrice(
   }
 
   // No valid price found
-  localLogger.error({ event: 'oracle.price.failed', symbol: asset.symbol, resourceAddress: asset.resourceAddress, triedSources: asset.priceFeeds.map(f => f.plugin) })
+  localLogger.error({
+    event: 'oracle.price.failed',
+    symbol: asset.symbol,
+    resourceAddress: asset.resourceAddress,
+    triedSources: asset.priceFeeds.map(f => f.plugin).filter(pluginName => registry.has(pluginName)),
+  })
 
   return null
 }
 
 function findXrdUsdPrice(
   pluginCaches: Map<string, Map<string, PriceFeedResult>>,
+  registry: PluginRegistry,
+  options: PluginFetchOptions,
   localLogger: ILogger,
 ): { price: string, source: string } | null {
-  // Find first USD price in the caches
-  for (const [pluginName, cache] of pluginCaches.entries()) {
-    for (const [identifier, result] of cache.entries()) {
-      if (result.currency === 'USD') {
-        localLogger.info({ event: 'oracle.price.xrd_usd.found_in_cache', source: pluginName, identifier, price: result.price })
-        return { price: result.price, source: pluginName }
-      }
+  const xrdAsset = ASSETS.find(asset => asset.symbol === 'XRD')
+  if (!xrdAsset)
+    return null
+
+  for (const feed of xrdAsset.priceFeeds) {
+    const plugin = registry.get(feed.plugin)
+    if (!plugin)
+      continue
+
+    const cache = pluginCaches.get(feed.plugin)
+    const identifier = feed.identifier ?? xrdAsset.resourceAddress
+    const result = cache?.get(identifier)
+
+    const isValid = result && plugin.isResultValid
+      ? plugin.isResultValid(result, options)
+      : true
+
+    if (result?.currency === 'USD' && isValid) {
+      localLogger.info({ event: 'oracle.price.xrd_usd.found_in_cache', source: feed.plugin, identifier, price: result.price })
+      return { price: result.price, source: feed.plugin }
     }
   }
 
   return null
 }
-
-const PLUGIN_PRIORITY = ['pyth', 'caviarnine', 'coingecko', 'astrolescent']
 
 async function prefetchAllPluginData(
   assets: AssetConfig[],
@@ -111,7 +170,10 @@ async function prefetchAllPluginData(
   const pluginCaches = new Map<string, Map<string, PriceFeedResult>>()
   const resolvedAssetAddresses = new Set<string>()
 
-  for (const pluginName of PLUGIN_PRIORITY) {
+  // order based on priority in PLUGIN_PRIORITY
+  const pluginNames = registry.keys().sort((a, b) => getPluginPriority(a) - getPluginPriority(b))
+
+  for (const pluginName of pluginNames) {
     const plugin = registry.get(pluginName)
     if (!plugin)
       continue
@@ -184,99 +246,26 @@ async function prefetchAllPluginData(
   return pluginCaches
 }
 
-function trimTrailingZeros(value: string): string {
-  if (!value.includes('.'))
-    return value
-  const trimmed = value.replace(/0+$/, '').replace(/\.$/, '')
-  return trimmed.length === 0 ? '0' : trimmed
-}
+export async function executePriceUpdate(
+  params: {
+    config: PriceUpdateConfig
+    logger: ILogger
+    enabledPlugins?: Partial<EnabledPriceSourcePlugins>
+  },
 
-function parseDecimalToBigInt(value: string, scale: number): bigint {
-  const raw = value.trim()
-  const negative = raw.startsWith('-')
-  const [whole = '0', fraction = ''] = (negative ? raw.slice(1) : raw).split('.')
-  const normalizedWhole = whole.length === 0 ? '0' : whole
-  const normalizedFraction = fraction.replace(/\D/g, '')
-
-  if (!/^\d+$/.test(normalizedWhole) || (normalizedFraction && !/^\d+$/.test(normalizedFraction))) {
-    throw new Error(`Invalid decimal value: ${value}`)
-  }
-
-  const fractionPadded = (normalizedFraction + '0'.repeat(scale)).slice(0, scale)
-  const combined = normalizedWhole + fractionPadded
-  const bigintValue = BigInt(combined || '0')
-  return negative ? -bigintValue : bigintValue
-}
-
-function formatBigIntToDecimal(value: bigint, scale: number): string {
-  const negative = value < 0n
-  const raw = (negative ? -value : value).toString()
-  if (scale === 0)
-    return `${negative ? '-' : ''}${raw}`
-
-  const padded = raw.padStart(scale + 1, '0')
-  const whole = padded.slice(0, -scale)
-  const fraction = padded.slice(-scale)
-  return `${negative ? '-' : ''}${whole}.${fraction}`
-}
-
-function normalizeUsdToXrd(usdPrice: string, xrdUsdPrice: string, scale: number): string {
-  const numerator = parseDecimalToBigInt(usdPrice, scale)
-  const denominator = parseDecimalToBigInt(xrdUsdPrice, scale)
-  if (denominator === 0n) {
-    throw new Error('XRD/USD price is zero')
-  }
-
-  const scaleFactor = 10n ** BigInt(scale)
-  const normalized = (numerator * scaleFactor) / denominator
-  return trimTrailingZeros(formatBigIntToDecimal(normalized, scale))
-}
-
-export function buildManifest(params: {
-  accountAddress: string
-  badgeResourceAddress: string
-  badgeId: string
-  oracleComponentAddress: string
-  prices: PriceResult[]
-}) {
-  const entries = params.prices.map(price => (
-    `    Address("${price.resourceAddress}") => Decimal("${price.price}")`
-  ))
-
-  return [
-    'CALL_METHOD',
-    `    Address("${params.accountAddress}")`,
-    '    "create_proof_of_non_fungibles"',
-    `    Address("${params.badgeResourceAddress}")`,
-    '    Array<NonFungibleLocalId>(',
-    `        NonFungibleLocalId("${params.badgeId}")`,
-    '    )',
-    ';',
-    '',
-    'CALL_METHOD',
-    `  Address("${params.oracleComponentAddress}")`,
-    '  "update_prices"',
-    '  Map<Address, Decimal>(',
-    entries.join(',\n'),
-    '  )',
-    ';',
-  ].join('\n')
-}
-
-export interface PriceUpdateConfig {
-  pythBaseUrl: string
-  coingeckoBaseUrl: string
-  caviarnineBaseUrl: string
-  astrolescentBaseUrl: string
-  timeoutMs: number
-  maxPriceAgeSec?: number
-}
-
-export async function executePriceUpdate(params: {
-  config: PriceUpdateConfig
-  logger: ILogger
-}) {
+) {
   const { config, logger: localLogger } = params
+  const enabledPlugins = resolveEnabledPlugins(params.enabledPlugins)
+
+  if (
+    !enabledPlugins.pyth
+    && !enabledPlugins.caviarnine
+    && !enabledPlugins.coingecko
+    && !enabledPlugins.astrolescent
+  ) {
+    localLogger.error({ event: 'oracle.price.failed', error: 'No plugins enabled' })
+    throw new Error('No plugins enabled')
+  }
 
   const options: PluginFetchOptions = {
     timeoutMs: config.timeoutMs,
@@ -285,24 +274,30 @@ export async function executePriceUpdate(params: {
 
   // Initialize plugin registry
   const registry = new PluginRegistry()
-  registry.register(new PythPlugin(config.pythBaseUrl))
-  registry.register(new CoinGeckoPlugin(config.coingeckoBaseUrl))
-  registry.register(new CaviarNinePlugin(config.caviarnineBaseUrl))
-  registry.register(new AstrolescentPlugin(config.astrolescentBaseUrl))
+  if (enabledPlugins.pyth) {
+    registry.register(new PythPlugin(config.pythBaseUrl))
+  }
+  if (enabledPlugins.caviarnine) {
+    registry.register(new CaviarNinePlugin(config.caviarnineBaseUrl))
+  }
+  if (enabledPlugins.coingecko) {
+    registry.register(new CoinGeckoPlugin(config.coingeckoBaseUrl))
+  }
+  if (enabledPlugins.astrolescent) {
+    registry.register(new AstrolescentPlugin(config.astrolescentBaseUrl))
+  }
 
-  localLogger.info({ event: 'oracle.fetch.start', assetCount: ASSETS.length })
+  localLogger.info({ event: 'oracle.fetch.start', assetCount: ASSETS.length, enabledPlugins })
 
   // Prefetch all plugin data in parallel
   const pluginCaches = await prefetchAllPluginData(ASSETS, registry, options, localLogger)
 
-  // Find XRD/USD price from first available USD price in cache
-  const xrdUsdResult = findXrdUsdPrice(pluginCaches, localLogger)
-  if (!xrdUsdResult) {
-    throw new Error('No USD prices found in cache to use as XRD/USD reference')
+  // Find the XRD/USD reference only when an enabled USD source provided one.
+  let xrdUsdResult = findXrdUsdPrice(pluginCaches, registry, options, localLogger)
+  let xrdUsdPrice = xrdUsdResult?.price
+  if (xrdUsdResult) {
+    localLogger.info({ event: 'oracle.price.xrd_usd', price: xrdUsdResult.price, source: xrdUsdResult.source })
   }
-
-  const xrdUsdPrice = xrdUsdResult.price
-  localLogger.info({ event: 'oracle.price.xrd_usd', price: xrdUsdPrice, source: xrdUsdResult.source })
 
   // Process all assets
   const prices: PriceResult[] = []
@@ -337,6 +332,15 @@ export async function executePriceUpdate(params: {
     }
 
     // If price is in USD, normalize to XRD
+    if (!xrdUsdPrice) {
+      xrdUsdResult = findXrdUsdPrice(pluginCaches, registry, options, localLogger)
+      xrdUsdPrice = xrdUsdResult?.price
+      if (!xrdUsdPrice) {
+        throw new Error('No XRD/USD price found in cache to normalize USD prices')
+      }
+      localLogger.info({ event: 'oracle.price.xrd_usd', price: xrdUsdPrice, source: xrdUsdResult?.source })
+    }
+
     const normalized = normalizeUsdToXrd(quote.price, xrdUsdPrice, NORMALIZED_SCALE)
 
     prices.push({
