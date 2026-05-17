@@ -28,6 +28,11 @@
       "import": "./dist/pricing/index.mjs",
       "require": "./dist/pricing/index.js"
     },
+    "./producer": {
+      "types": "./dist/producer/index.d.ts",
+      "import": "./dist/producer/index.mjs",
+      "require": "./dist/producer/index.js"
+    },
     "./transactions": {
       "types": "./dist/transactions/index.d.ts",
       "import": "./dist/transactions/index.mjs",
@@ -43,7 +48,8 @@
   },
   "dependencies": {
     "@local-packages/common-utils": "workspace:*",
-    "@local-packages/typescript-wallet": "workspace:*"
+    "@local-packages/typescript-wallet": "workspace:*",
+    "@radixdlt/radix-engine-toolkit": "^1.0.6"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",

@@ -1,4 +1,4 @@
-import { getPublicKey, etc as ed25519Etc } from '@noble/ed25519'
+import { etc as ed25519Etc, getPublicKey } from '@noble/ed25519'
 import { hmac } from '@noble/hashes/hmac'
 import { sha512 } from '@noble/hashes/sha512'
 import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from '@noble/hashes/utils'
@@ -8,7 +8,7 @@ import { secureRandom } from './secure-random'
 
 const ED25519_CURVE = utf8ToBytes('ed25519 seed')
 const HARDENED_OFFSET = 0x80000000
-const pathRegex = /^m(\/[0-9]+')+$/
+const pathRegex = /^m(?:\/\d+')+$/
 
 ed25519Etc.sha512Sync = (...messages: Uint8Array[]) => sha512(concatBytes(...messages))
 

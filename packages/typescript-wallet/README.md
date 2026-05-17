@@ -40,6 +40,19 @@ MNEMONIC=''
 npm run examples:deploy-package
 ```
 
+### Logging
+
+Wallet logging is silent by default. Pass an `ILogger`-compatible logger to the client when you want wallet diagnostics to flow through the caller's logging pipeline.
+
+```ts
+const client = getRadixEngineClient({
+  networkName: 'Stokenet',
+  mnemonic,
+  derivationIndex: 0,
+  logger,
+})
+```
+
 ## License
 
 All code in this repository is licensed under the modified MIT license described in [LICENSE](/LICENSE).

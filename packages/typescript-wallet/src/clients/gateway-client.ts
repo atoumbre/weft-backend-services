@@ -1,4 +1,5 @@
 import type { NetworkConfig, TransactionPreviewRequest, TransactionStatus } from '@radixdlt/babylon-gateway-api-sdk'
+import type { ILogger } from '../helpers/logger'
 import { GatewayApiClient } from '@radixdlt/babylon-gateway-api-sdk'
 import { err, errAsync, okAsync, ResultAsync } from 'neverthrow'
 import { filter, first, firstValueFrom, switchMap } from 'rxjs'
@@ -8,7 +9,13 @@ import { typedError } from '../helpers/typed-error'
 
 export type GatewayClient = ReturnType<typeof getGatewayClient>
 
-export function getGatewayClient(networkConfig: NetworkConfig) {
+export interface GatewayClientOptions {
+  logger?: ILogger
+}
+
+export function getGatewayClient(networkConfig: NetworkConfig, options: GatewayClientOptions = {}) {
+  const logger = options.logger ?? walletLogger
+
   const { status, transaction, state } = GatewayApiClient.initialize({
     basePath: networkConfig.gatewayUrl,
     applicationName: 'dApp Manager',
@@ -101,7 +108,7 @@ export function getGatewayClient(networkConfig: NetworkConfig) {
               return [err(result.error)]
 
             return getTransactionStatus(txId).andThen((response) => {
-              walletLogger?.debug({
+              logger.debug({
                 event: 'pollTransactionStatus',
                 retry: result.value + 1,
                 status: response.status,

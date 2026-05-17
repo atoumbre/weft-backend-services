@@ -6,15 +6,14 @@
  * 2. Calls the platform-agnostic price update service
  * 3. Returns the generated transaction manifest for scheduled or HTTP triggers
  */
-import * as LogLevels from '@local-packages/common-utils/log-level'
-import * as PriceUpdater from '@local-service/price-updater'
+import type { LogLevel } from '@local-packages/common-utils/log-level'
+import type { NetworkName, PriceUpdateError, PriceUpdateRunnerConfig } from '@local-service/price-updater/execution'
+import type { ILogger } from '@local-service/price-updater/plugins'
+import { isLogLevel, levelToNumber } from '@local-packages/common-utils/log-level'
+import { configureWalletLogger } from '@local-packages/typescript-wallet/transactions'
+import { runPriceUpdate, toPriceUpdateError } from '@local-service/price-updater/execution'
+import { createSignedPriceUpdate } from '@local-service/price-updater/producer'
 import { err, Result as NeverthrowResult, ok } from 'neverthrow'
-
-type ILogger = PriceUpdater.ILogger
-type LogLevel = LogLevels.LogLevel
-type NetworkName = PriceUpdater.NetworkName
-type PriceUpdateError = PriceUpdater.PriceUpdateError
-type PriceUpdateRunnerConfig = PriceUpdater.PriceUpdateRunnerConfig
 
 interface Env {
   MNEMONIC: string
@@ -32,6 +31,7 @@ interface Env {
   ASTROLESCENT_BASE_URL: string
   PRICE_FETCH_TIMEOUT_MS: string
   TRANSACTION_FEE_XRD?: string
+  PRICE_PAYLOAD_TTL_SEC?: string
 
   PYTH_MAX_AGE_SEC?: string
 
@@ -60,7 +60,7 @@ type WorkerLogLevel = 'debug' | 'info' | 'warn' | 'error'
 function requireBinding(env: Env, key: keyof Env): NeverthrowResult<string, PriceUpdateError> {
   const value = env[key]
   if (value === undefined || value === null || String(value).trim() === '')
-    return err(PriceUpdater.toPriceUpdateError('readConfig', new Error(`Missing required Cloudflare binding: ${key}`)))
+    return err(toPriceUpdateError('readConfig', new Error(`Missing required Cloudflare binding: ${key}`)))
 
   return ok(String(value))
 }
@@ -106,12 +106,14 @@ function getRequiredConfig(env: Env) {
     astrolescentBaseUrl: env.ASTROLESCENT_BASE_URL,
     timeoutMs: Number(env.PRICE_FETCH_TIMEOUT_MS),
     transactionFeeXrd: optionalNumber(env.TRANSACTION_FEE_XRD) ?? 5,
+    signedPayloadTtlSec: optionalNumber(env.PRICE_PAYLOAD_TTL_SEC) ?? 60,
     maxPriceAgeSec: optionalNumber(env.PYTH_MAX_AGE_SEC),
 
     disablePyth: isDisabledFlag(env.DISABLE_PYTH),
     disableCaviarNine: isDisabledFlag(env.DISABLE_CAVIARNINE),
     disableCoinGecko: isDisabledFlag(env.DISABLE_COINGECKO),
     disableAstrolescent: isDisabledFlag(env.DISABLE_ASTROLESCENT),
+    logLevel: env.LOG_LEVEL ?? 'info',
   } as PriceUpdateRunnerConfig))
 }
 
@@ -119,7 +121,7 @@ function getRequiredConfig(env: Env) {
 
 function parseLogLevel(raw: string | undefined): LogLevel {
   const level = raw?.toLowerCase()
-  return level && LogLevels.isLogLevel(level) ? level : 'info'
+  return level && isLogLevel(level) ? level : 'info'
 }
 
 function errorLogPayload(event: string, error: PriceUpdateError) {
@@ -135,10 +137,10 @@ function createWorkerLogger(
   bindings: Record<string, unknown> = {},
   minLevel: LogLevel = 'info',
 ): ILogger {
-  const minRank = LogLevels.levelToNumber(minLevel)
+  const minRank = levelToNumber(minLevel)
 
   const write = (level: WorkerLogLevel, message: unknown, args: unknown[]) => {
-    if (LogLevels.levelToNumber(level) < minRank)
+    if (levelToNumber(level) < minRank)
       return
 
     const payload = {
@@ -162,6 +164,15 @@ function createWorkerLogger(
   }
 }
 
+function createLocalLogger(
+  bindings: Record<string, unknown> = {},
+  minLevel: LogLevel = 'info',
+): ILogger {
+  const logger = createWorkerLogger('price-updater-worker', bindings, minLevel)
+  configureWalletLogger(logger)
+  return logger
+}
+
 // Json response helper
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
@@ -182,8 +193,31 @@ function bigIntReplacer(_key: string, value: unknown): unknown {
 
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'GET' && new URL(request.url).pathname === '/health') {
+    const path = new URL(request.url).pathname
+
+    if (request.method === 'GET' && path === '/health') {
       return jsonResponse({ ok: true })
+    }
+
+    if (path === '/price-update-payload') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed' }, {
+          status: 405,
+          headers: { allow: 'GET' },
+        })
+      }
+
+      const logger = createLocalLogger({ trigger: 'http', route: path }, parseLogLevel(env.LOG_LEVEL))
+
+      return getRequiredConfig(env)
+        .asyncAndThen(config => createSignedPriceUpdate(config, logger))
+        .match(
+          result => jsonResponse(result),
+          (error) => {
+            logger.error(errorLogPayload('oracle.price_payload.failed', error))
+            return jsonResponse({ error: error.message, step: error.step }, { status: 500 })
+          },
+        )
     }
 
     if (request.method !== 'POST') {
@@ -193,10 +227,10 @@ const worker = {
       })
     }
 
-    const logger = createWorkerLogger('price-updater-worker', { trigger: 'http' }, parseLogLevel(env.LOG_LEVEL))
+    const logger = createLocalLogger({ trigger: 'http' }, parseLogLevel(env.LOG_LEVEL))
 
     return getRequiredConfig(env)
-      .asyncAndThen(config => PriceUpdater.runPriceUpdate(config, logger))
+      .asyncAndThen(config => runPriceUpdate(config, logger))
       .match(
         result => jsonResponse(result),
         (error) => {
@@ -207,7 +241,7 @@ const worker = {
   },
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    const logger = createWorkerLogger('price-updater-worker', {
+    const logger = createLocalLogger({
       trigger: 'scheduled',
       cron: controller.cron,
       scheduledTime: controller.scheduledTime,
@@ -215,7 +249,7 @@ const worker = {
 
     ctx.waitUntil(
       getRequiredConfig(env)
-        .asyncAndThen(config => PriceUpdater.runPriceUpdate(config, logger))
+        .asyncAndThen(config => runPriceUpdate(config, logger))
         .match(
           () => undefined,
           error => logger.error(errorLogPayload('oracle.failed', error)),

@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target browser --format esm",
+    "build": "esbuild ./src/index.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=./dist/index.js --minify --alias:@radixdlt/radix-engine-toolkit=../../node_modules/@radixdlt/radix-engine-toolkit/dist/radix-engine-toolkit.mjs",
     "dev": "node ./scripts/dev.mjs"
   },
   "dependencies": {
@@ -14,6 +14,7 @@
     "@local-service/price-updater": "workspace:*"
   },
   "devDependencies": {
+    "esbuild": "^0.27.4",
     "typescript": "^5.9.3",
     "wrangler": "^4.91.0"
   }

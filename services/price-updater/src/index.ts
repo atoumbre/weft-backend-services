@@ -30,5 +30,13 @@ export type {
 
 export { executePriceUpdate } from './pricing'
 export type { EnabledPriceSourcePlugins, PriceQuote, PriceResult, PriceSourcePluginName, PriceUpdateConfig } from './pricing'
+export {
+  canonicalJson,
+  createSignedPriceUpdate,
+  encodePriceUpdatePayloadSbor,
+  hexToBytes,
+  toPriceUpdatePayloadSborProgrammaticJson,
+} from './producer'
+export type { SignedPriceUpdatePayload, SignedPriceUpdatePayloadPrice, SignedPriceUpdateResponse } from './producer'
 export { buildManifest } from './transactions'
 export { fetchJson, isRecord, optionalEnv, requireEnv } from './utils'

@@ -75,8 +75,10 @@
         "@local-packages/common-utils": "workspace:*",
         "@local-packages/typescript-wallet": "workspace:*",
         "@local-service/price-updater": "workspace:*",
+        "@radixdlt/radix-engine-toolkit": "^1.0.6",
       },
       "devDependencies": {
+        "esbuild": "^0.27.4",
         "typescript": "^5.9.3",
         "wrangler": "^4.91.0",
       },
@@ -176,6 +178,7 @@
       "dependencies": {
         "@local-packages/common-utils": "workspace:*",
         "@local-packages/typescript-wallet": "workspace:*",
+        "@radixdlt/radix-engine-toolkit": "^1.0.6",
       },
       "devDependencies": {
         "@types/node": "^20.19.27",

@@ -4,6 +4,8 @@ import type {
   TransactionHeader,
   TransactionManifest,
 } from '@radixdlt/radix-engine-toolkit'
+import type { ILogger } from '../helpers/logger'
+import { sign } from '@noble/ed25519'
 import {
   bucket,
   decimal,
@@ -37,6 +39,7 @@ function getSignerKeys(mnemonic: string, derivationPath: string) {
   return ok({
     signerPrivateKey,
     signerPublicKey,
+    privateKeyHex: privateKey,
     publicKeyHex: Buffer.from(signerPublicKey.publicKey).toString('hex'),
   })
 }
@@ -52,15 +55,20 @@ function deriveAccountAddressFromPublicKey(publicKey: PublicKey, networkId: numb
 }
 
 export type RadixEngineClient = ReturnType<typeof getRadixEngineClient>
+
+export interface RadixEngineClientOptions {
+  networkName: keyof typeof RadixNetworkConfig
+  mnemonic: string
+  derivationIndex: number
+  logger?: ILogger
+}
+
 export function getRadixEngineClient({
   networkName,
   mnemonic,
   derivationIndex,
-}: {
-  networkName: keyof typeof RadixNetworkConfig
-  mnemonic: string
-  derivationIndex: number
-}) {
+  logger = walletLogger,
+}: RadixEngineClientOptions) {
   const networkConfig = getNetworkConfig(networkName)
   const { networkId, dashboardUrl } = networkConfig
 
@@ -84,9 +92,14 @@ export function getRadixEngineClient({
   if (result.isErr())
     throw result.error
 
-  const { signerPublicKey, signerPrivateKey, publicKeyHex: signerPublicKeyHex } = result.value[0]
+  const {
+    signerPublicKey,
+    signerPrivateKey,
+    privateKeyHex: signerPrivateKeyHex,
+    publicKeyHex: signerPublicKeyHex,
+  } = result.value[0]
 
-  const gatewayClient = getGatewayClient(networkConfig)
+  const gatewayClient = getGatewayClient(networkConfig, { logger })
 
   const getAccountAddress = () =>
     deriveAccountAddressFromPublicKey(signerPublicKey, networkId)
@@ -192,6 +205,12 @@ export function getRadixEngineClient({
         })),
     )
 
+  const signMessage = (message: Uint8Array) =>
+    Result.fromThrowable(
+      () => Buffer.from(sign(message, signerPrivateKeyHex)).toString('hex'),
+      typedError,
+    )()
+
   function convertParsedManifest(transactionManifest: TransactionManifest): ResultAsync<TransactionManifest, Error> {
     return ResultAsync.fromPromise(
       RadixEngineToolkit.Instructions.convert(
@@ -205,22 +224,22 @@ export function getRadixEngineClient({
 
   const submitTransaction = (transactionManifest: TransactionManifest) => {
     convertParsedManifest(transactionManifest).map((data) => {
-      walletLogger.debug(`Submitting transaction`)
-      walletLogger.debug(data.instructions.value)
+      logger.debug('Submitting transaction')
+      logger.debug(data.instructions.value)
       return data
     })
 
     return buildTransaction(transactionManifest)
       .andThen(
         ({ compiledTransactionHex: notarized_transaction_hex, txId }) => {
-          walletLogger.debug(`${dashboardUrl}/transaction/${txId}`)
+          logger.debug(`${dashboardUrl}/transaction/${txId}`)
           return gatewayClient
             .submitNotarizedTransactionHex(notarized_transaction_hex)
             .map(response => ({ ...response, txId }))
         },
       )
       .mapErr((error) => {
-        walletLogger.error(error)
+        logger.error(error)
         return error
       })
   }
@@ -248,7 +267,7 @@ export function getRadixEngineClient({
     )
       .map(instructions => ({ instructions, blobs: [] }))
       .mapErr((err) => {
-        walletLogger.error(err)
+        logger.error(err)
         return err
       })
   }
@@ -299,11 +318,13 @@ export function getRadixEngineClient({
     submitTransaction,
     getManifestBuilder,
     getSignerKeys,
+    signMessage,
     gatewayClient,
     decodeSbor,
     convertStringManifest,
     convertParsedManifest,
     getXrdFromFaucet,
+    networkId,
     signerPublicKeyHex,
   }
 }

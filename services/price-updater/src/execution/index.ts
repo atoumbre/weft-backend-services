@@ -1,4 +1,10 @@
-export { runPriceUpdate, toPriceUpdateError, toWorkerError } from './run-price-update'
+export {
+  getEnabledPriceSourcePlugins,
+  getPriceUpdateFetchConfig,
+  runPriceUpdate,
+  toPriceUpdateError,
+  toWorkerError,
+} from './run-price-update'
 export type {
   NetworkName,
   PriceUpdateError,

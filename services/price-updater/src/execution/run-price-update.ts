@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow'
 import type { ILogger } from '../plugins/types'
+import type { EnabledPriceSourcePlugins, PriceUpdateConfig } from '../pricing/resolve-prices'
 import { getRadixEngineClient } from '@local-packages/typescript-wallet/transactions'
 
 import { err, Result as NeverthrowResult, ok, okAsync, ResultAsync } from 'neverthrow'
@@ -37,7 +38,8 @@ export interface PriceUpdateRunnerConfig {
   astrolescentBaseUrl: string
   timeoutMs: number
   transactionFeeXrd: number
-  maxPriceAgeSec: number
+  maxPriceAgeSec?: number
+  signedPayloadTtlSec: number
   disableCaviarNine: boolean
   disableCoinGecko: boolean
   disablePyth: boolean
@@ -61,6 +63,26 @@ export function toPriceUpdateError(step: string, cause: unknown): PriceUpdateErr
 }
 
 export const toWorkerError = toPriceUpdateError
+
+export function getPriceUpdateFetchConfig(config: PriceUpdateRunnerConfig): PriceUpdateConfig {
+  return {
+    pythBaseUrl: config.pythBaseUrl,
+    coingeckoBaseUrl: config.coingeckoBaseUrl,
+    caviarnineBaseUrl: config.caviarnineBaseUrl,
+    astrolescentBaseUrl: config.astrolescentBaseUrl,
+    timeoutMs: config.timeoutMs,
+    maxPriceAgeSec: config.maxPriceAgeSec,
+  }
+}
+
+export function getEnabledPriceSourcePlugins(config: PriceUpdateRunnerConfig): EnabledPriceSourcePlugins {
+  return {
+    pyth: !config.disablePyth,
+    caviarnine: !config.disableCaviarNine,
+    coingecko: !config.disableCoinGecko,
+    astrolescent: !config.disableAstrolescent,
+  }
+}
 
 // Steps
 
@@ -218,24 +240,12 @@ export function runPriceUpdate(config: PriceUpdateRunnerConfig, logger: ILogger)
 
   return ResultAsync.fromPromise(
     (() => {
-      const enabledPlugins = {
-        pyth: !config.disablePyth,
-        caviarnine: !config.disableCaviarNine,
-        coingecko: !config.disableCoinGecko,
-        astrolescent: !config.disableAstrolescent,
-      }
+      const enabledPlugins = getEnabledPriceSourcePlugins(config)
 
       localLogger.debug('config.resolved', config)
 
       return executePriceUpdate({
-        config: {
-          pythBaseUrl: config.pythBaseUrl,
-          coingeckoBaseUrl: config.coingeckoBaseUrl,
-          caviarnineBaseUrl: config.caviarnineBaseUrl,
-          astrolescentBaseUrl: config.astrolescentBaseUrl,
-          timeoutMs: config.timeoutMs,
-          maxPriceAgeSec: config.maxPriceAgeSec,
-        },
+        config: getPriceUpdateFetchConfig(config),
         logger: localLogger,
         enabledPlugins,
       })
