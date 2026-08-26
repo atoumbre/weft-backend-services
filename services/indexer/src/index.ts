@@ -1,6 +1,7 @@
-import type { EnvFactory, ILogger } from '@local-packages/common-utils'
+import type { EnvFactory } from '@local-packages/common-utils'
+import type { ILogger } from '@local-packages/common-utils/logger'
 import process from 'node:process'
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger } from '@local-packages/common-utils/logger'
 import { checkRisk, fetchCdpDetails } from './indexer'
 
 export type { CdpDetailFetcher, CdpFetchResult } from './indexer'

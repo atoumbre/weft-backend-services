@@ -11,7 +11,8 @@
 //
 
 import { randomUUID } from 'node:crypto'
-import { createEnvFactory, createLogger, optionalEnv } from '@local-packages/common-utils'
+import { createEnvFactory, optionalEnv } from '@local-packages/common-utils'
+import { createLogger } from '@local-packages/common-utils/logger'
 import { buildManifest, executePriceUpdate } from '@local-service/price-updater'
 
 const logger = createLogger({ service: 'oracle-updater' })

@@ -1,4 +1,4 @@
-import type { ILogger } from '@local-packages/common-utils'
+import type { ILogger } from '@local-packages/common-utils/logger'
 import type { WeftLedgerSateFetcher } from '@weft-finance/ledger-state'
 
 export type CdpIdFetcher = Pick<WeftLedgerSateFetcher, 'getCdpIds'>

@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger } from '@local-packages/common-utils/logger'
 import { describe, expect, it } from 'bun:test'
 import { ASSETS, AstrolescentPlugin, CaviarNinePlugin, CoinGeckoPlugin, optionalEnv, PythPlugin } from '../src'
 

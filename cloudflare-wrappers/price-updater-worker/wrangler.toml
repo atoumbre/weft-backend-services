@@ -3,9 +3,6 @@ main = "dist/index.js"
 compatibility_date = "2026-05-15"
 compatibility_flags = [ "nodejs_compat" ]
 
-[triggers]
-crons = [ "5/10 * * * *" ]
-
 [vars]
 PYTH_HERMES_URL = "https://hermes.pyth.network"
 COINGECKO_BASE_URL = "https://api.coingecko.com"
@@ -24,3 +21,14 @@ DISABLE_COINGECKO = "false"
 DISABLE_PYTH = "false"
 DISABLE_ASTROLESCENT = "false"
 LOG_LEVEL = "info" # Minimum log level emitted. One of: debug | info | warn | error. Defaults to 'info'. */
+
+[observability]
+logs = { enabled = true }
+
+[triggers]
+crons = [ "5/10 * * * *" ]
+
+[[kv_namespaces]]
+binding = "PRICE_PAYLOAD_CACHE"
+id = "6c9be4ed200140689757702a1d8e269d"
+# preview_id = "<preview-kv-namespace-id>"

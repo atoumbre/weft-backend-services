@@ -1,7 +1,8 @@
-import type { EnvFactory, ILogger } from '@local-packages/common-utils'
+import type { EnvFactory } from '@local-packages/common-utils'
+import type { ILogger } from '@local-packages/common-utils/logger'
 import type { CdpIdFetcher } from './fetcher'
 import { randomUUID } from 'node:crypto'
-import { createLogger } from '@local-packages/common-utils'
+import { createLogger } from '@local-packages/common-utils/logger'
 import { fetchAndBatchCdpIds } from './fetcher'
 
 export type { CdpIdFetcher, DispatchData } from './fetcher'

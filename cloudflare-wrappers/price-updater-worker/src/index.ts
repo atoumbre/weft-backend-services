@@ -6,14 +6,15 @@
  * 2. Calls the platform-agnostic price update service
  * 3. Returns the generated transaction manifest for scheduled or HTTP triggers
  */
-import type { LogLevel } from '@local-packages/common-utils/log-level'
+import type { LogLevel } from '@local-packages/common-utils/logger'
 import type { NetworkName, PriceUpdateError, PriceUpdateRunnerConfig } from '@local-service/price-updater/execution'
 import type { ILogger } from '@local-service/price-updater/plugins'
-import { isLogLevel, levelToNumber } from '@local-packages/common-utils/log-level'
+import type { SignedPriceUpdateResponse } from '@local-service/price-updater/producer'
+import { isLogLevel, levelToNumber } from '@local-packages/common-utils/logger'
 import { configureWalletLogger } from '@local-packages/typescript-wallet/transactions'
 import { runPriceUpdate, toPriceUpdateError } from '@local-service/price-updater/execution'
 import { createSignedPriceUpdate } from '@local-service/price-updater/producer'
-import { err, Result as NeverthrowResult, ok } from 'neverthrow'
+import { err, Result as NeverthrowResult, ok, okAsync, ResultAsync } from 'neverthrow'
 
 interface Env {
   MNEMONIC: string
@@ -42,6 +43,9 @@ interface Env {
 
   /** Minimum log level emitted. One of: debug | info | warn | error. Defaults to 'info'. */
   LOG_LEVEL?: string
+
+  /** KV namespace used to share signed price payload cache entries across worker isolates. */
+  PRICE_PAYLOAD_CACHE: KVNamespace
 }
 
 interface ScheduledController {
@@ -53,7 +57,17 @@ interface ExecutionContext {
   waitUntil: (promise: Promise<unknown>) => void
 }
 
+interface KVNamespace {
+  get: <T = unknown>(key: string, type: 'json') => Promise<T | null>
+  put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>
+}
+
 type WorkerLogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+const PRICE_PAYLOAD_CACHE_TTL_MS = 60_000
+const PRICE_PAYLOAD_CACHE_TTL_SECONDS = PRICE_PAYLOAD_CACHE_TTL_MS / 1000
+const PRICE_PAYLOAD_CACHE_KEY_PREFIX = 'signed-price-payload'
+const KV_MIN_EXPIRATION_TTL_SECONDS = 60
 
 // PARSE ENV
 
@@ -189,6 +203,101 @@ function bigIntReplacer(_key: string, value: unknown): unknown {
   return typeof value === 'bigint' ? value.toString() : value
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function getSignedPricePayloadCacheKey(config: PriceUpdateRunnerConfig): Promise<string> {
+  const keyPayload = JSON.stringify(config)
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(keyPayload))
+  return `${PRICE_PAYLOAD_CACHE_KEY_PREFIX}:${bytesToHex(new Uint8Array(digest))}`
+}
+
+function isUsableCachedSignedPricePayload(
+  response: SignedPriceUpdateResponse,
+  now: number,
+): boolean {
+  return response.payload.expiresAtUnixMs > now
+}
+
+function createCachedSignedPriceUpdate(
+  config: PriceUpdateRunnerConfig,
+  logger: ILogger,
+  kv: KVNamespace,
+): ResultAsync<SignedPriceUpdateResponse, PriceUpdateError> {
+  const now = Date.now()
+
+  return ResultAsync.fromPromise(
+    getSignedPricePayloadCacheKey(config),
+    error => toPriceUpdateError('pricePayloadCacheKey', error),
+  )
+    .andThen((cacheKey) => {
+      return ResultAsync.fromPromise(
+        kv.get<SignedPriceUpdateResponse>(cacheKey, 'json'),
+        error => toPriceUpdateError('pricePayloadCacheRead', error),
+      )
+        .map((response) => {
+          if (response && isUsableCachedSignedPricePayload(response, now)) {
+            logger.info({
+              event: 'oracle.price_payload.cache.hit',
+              cache: 'kv',
+              expiresInMs: response.payload.expiresAtUnixMs - now,
+            })
+
+            return { cacheKey, response }
+          }
+
+          logger.info({ event: 'oracle.price_payload.cache.miss', cache: 'kv' })
+          return { cacheKey, response: undefined as SignedPriceUpdateResponse | undefined }
+        })
+        .orElse((error) => {
+          logger.warn({
+            event: 'oracle.price_payload.cache.read_failed',
+            step: error.step,
+            err: error.message,
+          })
+          return okAsync({ cacheKey, response: undefined as SignedPriceUpdateResponse | undefined })
+        })
+    })
+    .andThen(({ cacheKey, response }) => {
+      if (response)
+        return okAsync(response)
+
+      return createSignedPriceUpdate(config, logger)
+        .andThen((freshResponse) => {
+          const expiresAtUnixMs = Math.min(
+            Date.now() + PRICE_PAYLOAD_CACHE_TTL_MS,
+            freshResponse.payload.expiresAtUnixMs,
+          )
+
+          const ttlSeconds = Math.max(KV_MIN_EXPIRATION_TTL_SECONDS, PRICE_PAYLOAD_CACHE_TTL_SECONDS)
+
+          return ResultAsync.fromPromise(
+            kv.put(cacheKey, JSON.stringify(freshResponse), {
+              expirationTtl: ttlSeconds,
+            }),
+            error => toPriceUpdateError('pricePayloadCacheWrite', error),
+          )
+            .map(() => {
+              logger.info({
+                event: 'oracle.price_payload.cache.write',
+                cache: 'kv',
+                ttlMs: expiresAtUnixMs - Date.now(),
+              })
+              return freshResponse
+            })
+            .orElse((error) => {
+              logger.warn({
+                event: 'oracle.price_payload.cache.write_failed',
+                step: error.step,
+                err: error.message,
+              })
+              return okAsync(freshResponse)
+            })
+        })
+    })
+}
+
 // Worker Logic
 
 const worker = {
@@ -210,7 +319,7 @@ const worker = {
       const logger = createLocalLogger({ trigger: 'http', route: path }, parseLogLevel(env.LOG_LEVEL))
 
       return getRequiredConfig(env)
-        .asyncAndThen(config => createSignedPriceUpdate(config, logger))
+        .asyncAndThen(config => createCachedSignedPriceUpdate(config, logger, env.PRICE_PAYLOAD_CACHE))
         .match(
           result => jsonResponse(result),
           (error) => {

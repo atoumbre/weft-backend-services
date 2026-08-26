@@ -1,4 +1,4 @@
-import type { ILogger } from '@local-packages/common-utils'
+import type { ILogger } from '@local-packages/common-utils/logger'
 import type { AssetConfig } from '../assets'
 import type { PluginFetchOptions, PriceCurrency, PriceFeedResult } from '../plugins/types'
 import { ASSETS } from '../assets'

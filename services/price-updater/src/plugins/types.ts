@@ -1,4 +1,4 @@
-import type { ILogger } from '@local-packages/common-utils'
+import type { ILogger } from '@local-packages/common-utils/logger'
 
 export type { ILogger }
 

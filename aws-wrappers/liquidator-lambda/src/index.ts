@@ -12,7 +12,8 @@
 //
 
 import type { SQSHandler } from 'aws-lambda'
-import { createEnvFactory, createLogger, optionalEnv } from '@local-packages/common-utils'
+import { createEnvFactory, optionalEnv } from '@local-packages/common-utils'
+import { createLogger } from '@local-packages/common-utils/logger'
 import { processLiquidationMessage } from '@local-service/liquidator'
 
 const logger = createLogger({ service: 'liquidator-lambda' })
