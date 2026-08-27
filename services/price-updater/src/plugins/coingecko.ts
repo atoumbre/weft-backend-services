@@ -6,7 +6,7 @@ export class CoinGeckoPlugin implements PriceFeedPlugin {
   name = 'coingecko'
   currency: PriceCurrency = 'USD'
 
-  constructor(private baseUrl: string) { }
+  constructor(private baseUrl: string, private apiKey?: string) { }
 
   async fetchBatch(
     identifiers: string[],
@@ -24,7 +24,10 @@ export class CoinGeckoPlugin implements PriceFeedPlugin {
     url.searchParams.append('vs_currencies', 'usd')
 
     try {
-      const payload = await fetchJson(url.toString(), options.timeoutMs)
+      const headers = this.apiKey
+        ? { 'x-cg-demo-api-key': this.apiKey }
+        : undefined
+      const payload = await fetchJson(url.toString(), options.timeoutMs, headers)
       const payloadRecord = isRecord(payload) ? payload : {}
 
       for (const id of uniqueIds) {

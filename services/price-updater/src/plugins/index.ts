@@ -1,6 +1,7 @@
 export { AstrolescentPlugin } from './astrolescent'
 export { CaviarNinePlugin } from './caviarnine'
 export { CoinGeckoPlugin } from './coingecko'
+export { KucoinPlugin } from './kucoin'
 export { PythPlugin } from './pyth'
 export { PluginRegistry } from './registry'
 export type {

@@ -1,8 +1,15 @@
-export async function fetchJson(url: string, timeoutMs: number): Promise<unknown> {
+export async function fetchJson(
+  url: string,
+  timeoutMs: number,
+  headers?: Record<string, string>,
+): Promise<unknown> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(url, { signal: controller.signal })
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers,
+    })
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} fetching ${url}`)
     }

@@ -19,7 +19,7 @@ export type {
 } from './execution'
 
 // Plugin exports
-export { AstrolescentPlugin, CaviarNinePlugin, CoinGeckoPlugin, PluginRegistry, PythPlugin } from './plugins'
+export { AstrolescentPlugin, CaviarNinePlugin, CoinGeckoPlugin, KucoinPlugin, PluginRegistry, PythPlugin } from './plugins'
 export type {
   ILogger,
   PluginFetchOptions,
@@ -40,3 +40,5 @@ export {
 export type { SignedPriceUpdatePayload, SignedPriceUpdatePayloadPrice, SignedPriceUpdateResponse } from './producer'
 export { buildManifest } from './transactions'
 export { fetchJson, isRecord, optionalEnv, requireEnv } from './utils'
+export { fetchXrdUsdPrice } from './xrd-usd'
+export type { XrdUsdPrice, XrdUsdPriceConfig } from './xrd-usd'

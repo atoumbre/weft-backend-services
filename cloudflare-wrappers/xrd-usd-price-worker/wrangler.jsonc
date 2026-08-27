@@ -1,0 +1,24 @@
+{
+  "name": "weft-xrd-usd-price",
+  "main": "dist/index.js",
+  "compatibility_date": "2026-08-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "COINGECKO_BASE_URL": "https://api.coingecko.com",
+    "KUCOIN_BASE_URL": "https://api.kucoin.com",
+    "PRICE_FETCH_TIMEOUT_MS": "5000",
+    "CACHE_TTL_SEC": "300",
+    "LOG_LEVEL": "info",
+    "DISABLE_COINGECKO": "false",
+    "DISABLE_KUCOIN": "false"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "XRD_USD_CACHE",
+      "id": "9b6d8eb662944ff0891e49af447631e7"
+    }
+  ]
+}
