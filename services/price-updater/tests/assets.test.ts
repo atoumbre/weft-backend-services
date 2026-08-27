@@ -21,6 +21,18 @@ describe('ASSETS configuration', () => {
     const xrd = ASSETS.find(asset => asset.symbol === 'XRD')
     expect(xrd).toBeDefined()
     expect(xrd?.fixedPriceXrd).toBe('1')
+    expect(xrd?.priceFeeds.map(feed => feed.plugin)).toEqual(['coingecko', 'kucoin', 'gateio'])
+  })
+
+  it('does not include pyth feeds', () => {
+    for (const asset of ASSETS) {
+      expect(asset.priceFeeds.some(feed => feed.plugin === 'pyth')).toBe(false)
+    }
+  })
+
+  it('puts CoinGecko before CaviarNine on ecosystem tokens', () => {
+    const weft = ASSETS.find(asset => asset.symbol === 'WEFT')
+    expect(weft?.priceFeeds.map(feed => feed.plugin)).toEqual(['coingecko', 'caviarnine', 'astrolescent'])
   })
 
   it('should have unique resource addresses', () => {

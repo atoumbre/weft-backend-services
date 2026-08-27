@@ -42,16 +42,18 @@ export async function handler() {
   const oracleComponentAddress = env.require('ORACLE_COMPONENT_ADDRESS')
   const badgeId = env.optional('BADGE_NFT_ID') ?? '#1#'
 
-  const pythBaseUrl = env.optional('PYTH_HERMES_URL') ?? 'https://hermes.pyth.network'
   const coingeckoBaseUrl = env.optional('COINGECKO_BASE_URL') ?? 'https://api.coingecko.com'
+  const coingeckoApiKey = env.optional('COINGECKO_API_KEY')
+  const kucoinBaseUrl = env.optional('KUCOIN_BASE_URL') ?? 'https://api.kucoin.com'
+  const gateioBaseUrl = env.optional('GATEIO_BASE_URL') ?? 'https://api.gateio.ws'
   const caviarnineBaseUrl = env.optional('CAVIARNINE_BASE_URL') ?? 'https://api.caviarnine.com'
   const astrolescentBaseUrl = env.optional('ASTROLESCENT_BASE_URL') ?? 'https://api.astrolescent.com/partner/R96v1uADor/prices'
   const timeoutMs = Number(env.optional('PRICE_FETCH_TIMEOUT_MS') ?? '5000')
-  const maxPriceAgeSec = env.optional('PYTH_MAX_AGE_SEC')
   const enabledPlugins = {
-    pyth: !isDisabledFlag(env.optional('DISABLE_PYTH')),
-    caviarnine: !isDisabledFlag(env.optional('DISABLE_CAVIARNINE')),
     coingecko: !isDisabledFlag(env.optional('DISABLE_COINGECKO')),
+    kucoin: !isDisabledFlag(env.optional('DISABLE_KUCOIN')),
+    gateio: !isDisabledFlag(env.optional('DISABLE_GATEIO')),
+    caviarnine: !isDisabledFlag(env.optional('DISABLE_CAVIARNINE')),
     astrolescent: !isDisabledFlag(env.optional('DISABLE_ASTROLESCENT')),
   }
 
@@ -59,12 +61,13 @@ export async function handler() {
     // Call the platform-agnostic service
     const { prices, xrdUsdPrice } = await executePriceUpdate({
       config: {
-        pythBaseUrl,
         coingeckoBaseUrl,
+        coingeckoApiKey,
+        kucoinBaseUrl,
+        gateioBaseUrl,
         caviarnineBaseUrl,
         astrolescentBaseUrl,
         timeoutMs,
-        maxPriceAgeSec: maxPriceAgeSec ? Number(maxPriceAgeSec) : undefined,
       },
       logger: localLogger,
       enabledPlugins,

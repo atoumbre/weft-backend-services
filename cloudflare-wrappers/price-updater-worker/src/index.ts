@@ -26,20 +26,21 @@ interface Env {
   ORACLE_COMPONENT_ADDRESS: string
   BADGE_NFT_ID?: string
 
-  PYTH_HERMES_URL: string
   COINGECKO_BASE_URL: string
+  KUCOIN_BASE_URL: string
+  GATEIO_BASE_URL: string
   CAVIARNINE_BASE_URL: string
   ASTROLESCENT_BASE_URL: string
   PRICE_FETCH_TIMEOUT_MS: string
   TRANSACTION_FEE_XRD?: string
   PRICE_PAYLOAD_TTL_SEC?: string
 
-  PYTH_MAX_AGE_SEC?: string
-
-  DISABLE_PYTH?: string
   DISABLE_COINGECKO?: string
+  DISABLE_KUCOIN?: string
+  DISABLE_GATEIO?: string
   DISABLE_CAVIARNINE?: string
   DISABLE_ASTROLESCENT?: string
+  COINGECKO_API_KEY?: string
 
   /** Minimum log level emitted. One of: debug | info | warn | error. Defaults to 'info'. */
   LOG_LEVEL?: string
@@ -114,18 +115,20 @@ function getRequiredConfig(env: Env) {
     derivationIndex: optionalNumber(env.DERIVATION_INDEX) ?? 0,
     dryRun: isTrueFlag(env.DRY_RUN),
     // URL defaults live in wrangler.toml [vars]; these are fallbacks for local .dev.vars omissions only.
-    pythBaseUrl: env.PYTH_HERMES_URL,
     coingeckoBaseUrl: env.COINGECKO_BASE_URL,
+    coingeckoApiKey: env.COINGECKO_API_KEY?.trim() || undefined,
+    kucoinBaseUrl: env.KUCOIN_BASE_URL,
+    gateioBaseUrl: env.GATEIO_BASE_URL,
     caviarnineBaseUrl: env.CAVIARNINE_BASE_URL,
     astrolescentBaseUrl: env.ASTROLESCENT_BASE_URL,
     timeoutMs: Number(env.PRICE_FETCH_TIMEOUT_MS),
     transactionFeeXrd: optionalNumber(env.TRANSACTION_FEE_XRD) ?? 5,
     signedPayloadTtlSec: optionalNumber(env.PRICE_PAYLOAD_TTL_SEC) ?? 60,
-    maxPriceAgeSec: optionalNumber(env.PYTH_MAX_AGE_SEC),
 
-    disablePyth: isDisabledFlag(env.DISABLE_PYTH),
     disableCaviarNine: isDisabledFlag(env.DISABLE_CAVIARNINE),
     disableCoinGecko: isDisabledFlag(env.DISABLE_COINGECKO),
+    disableKucoin: isDisabledFlag(env.DISABLE_KUCOIN),
+    disableGateio: isDisabledFlag(env.DISABLE_GATEIO),
     disableAstrolescent: isDisabledFlag(env.DISABLE_ASTROLESCENT),
     logLevel: env.LOG_LEVEL ?? 'info',
   } as PriceUpdateRunnerConfig))

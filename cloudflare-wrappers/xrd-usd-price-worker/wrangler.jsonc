@@ -9,11 +9,13 @@
   "vars": {
     "COINGECKO_BASE_URL": "https://api.coingecko.com",
     "KUCOIN_BASE_URL": "https://api.kucoin.com",
+    "GATEIO_BASE_URL": "https://api.gateio.ws",
     "PRICE_FETCH_TIMEOUT_MS": "5000",
     "CACHE_TTL_SEC": "300",
     "LOG_LEVEL": "info",
     "DISABLE_COINGECKO": "false",
-    "DISABLE_KUCOIN": "false"
+    "DISABLE_KUCOIN": "false",
+    "DISABLE_GATEIO": "false"
   },
   "kv_namespaces": [
     {

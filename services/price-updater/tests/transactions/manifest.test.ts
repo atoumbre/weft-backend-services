@@ -12,7 +12,7 @@ describe('buildManifest', () => {
       badgeId: '#1#',
       prices: [
         { symbol: 'XRD', resourceAddress: 'resource_rdx1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxradxrd', price: '1', source: 'fixed' },
-        { symbol: 'xUSDT', resourceAddress: 'resource_rdx1thrvr3xfs2tarm2dl9emvs26vjqxu6mqvfgvqjne940jv0lnrrg7rw', price: '2.22', source: 'pyth' },
+        { symbol: 'xUSDT', resourceAddress: 'resource_rdx1thrvr3xfs2tarm2dl9emvs26vjqxu6mqvfgvqjne940jv0lnrrg7rw', price: '2.22', source: 'coingecko' },
       ],
     }
 

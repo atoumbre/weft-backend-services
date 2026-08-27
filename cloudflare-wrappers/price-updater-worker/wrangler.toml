@@ -4,8 +4,9 @@ compatibility_date = "2026-05-15"
 compatibility_flags = [ "nodejs_compat" ]
 
 [vars]
-PYTH_HERMES_URL = "https://hermes.pyth.network"
 COINGECKO_BASE_URL = "https://api.coingecko.com"
+KUCOIN_BASE_URL = "https://api.kucoin.com"
+GATEIO_BASE_URL = "https://api.gateio.ws"
 CAVIARNINE_BASE_URL = "https://api.caviarnine.com"
 ASTROLESCENT_BASE_URL = "https://api.astrolescent.com/partner/R96v1uADor/prices"
 PRICE_FETCH_TIMEOUT_MS = "5000"
@@ -18,7 +19,8 @@ NETWORK_NAME = "Mainnet"
 DRY_RUN = "false"
 DISABLE_CAVIARNINE = "false"
 DISABLE_COINGECKO = "false"
-DISABLE_PYTH = "false"
+DISABLE_KUCOIN = "false"
+DISABLE_GATEIO = "false"
 DISABLE_ASTROLESCENT = "false"
 LOG_LEVEL = "info" # Minimum log level emitted. One of: debug | info | warn | error. Defaults to 'info'. */
 

@@ -1,17 +1,21 @@
 import type { ILogger } from './plugins/types'
 import { CoinGeckoPlugin } from './plugins/coingecko'
+import { GateioPlugin } from './plugins/gateio'
 import { KucoinPlugin } from './plugins/kucoin'
 
 const COINGECKO_XRD_ID = 'radix'
 const KUCOIN_XRD_USDT_SYMBOL = 'XRD-USDT'
+const GATEIO_XRD_USDT_PAIR = 'XRD_USDT'
 
 export interface XrdUsdPriceConfig {
   coingeckoBaseUrl: string
   coingeckoApiKey?: string
   kucoinBaseUrl: string
+  gateioBaseUrl: string
   timeoutMs: number
   disableCoinGecko?: boolean
   disableKucoin?: boolean
+  disableGateio?: boolean
 }
 
 export interface XrdUsdPrice {
@@ -64,5 +68,22 @@ export async function fetchXrdUsdPrice(
     }
   }
 
-  throw new Error('No XRD/USD price found from CoinGecko or KuCoin')
+  if (!config.disableGateio) {
+    const plugin = new GateioPlugin(config.gateioBaseUrl)
+    const results = await plugin.fetchBatch([GATEIO_XRD_USDT_PAIR], options, logger)
+    const result = results.get(GATEIO_XRD_USDT_PAIR)
+    if (result?.currency === 'USD' && result.price) {
+      logger.info({ event: 'xrd_usd.fetched', source: 'gateio', price: result.price })
+      return {
+        symbol: 'XRD',
+        currency: 'USD',
+        price: result.price,
+        source: 'gateio',
+        publishTime: result.publishTime,
+        fetchedAtUnixMs,
+      }
+    }
+  }
+
+  throw new Error('No XRD/USD price found from CoinGecko, KuCoin, or Gate.io')
 }

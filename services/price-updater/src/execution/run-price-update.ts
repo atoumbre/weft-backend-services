@@ -32,17 +32,19 @@ export interface PriceUpdateRunnerConfig {
   mnemonic: string
   derivationIndex: number
   dryRun: boolean
-  pythBaseUrl: string
   coingeckoBaseUrl: string
+  coingeckoApiKey?: string
+  kucoinBaseUrl: string
+  gateioBaseUrl: string
   caviarnineBaseUrl: string
   astrolescentBaseUrl: string
   timeoutMs: number
   transactionFeeXrd: number
-  maxPriceAgeSec?: number
   signedPayloadTtlSec: number
   disableCaviarNine: boolean
   disableCoinGecko: boolean
-  disablePyth: boolean
+  disableKucoin: boolean
+  disableGateio: boolean
   disableAstrolescent: boolean
   logLevel: string
 }
@@ -66,20 +68,22 @@ export const toWorkerError = toPriceUpdateError
 
 export function getPriceUpdateFetchConfig(config: PriceUpdateRunnerConfig): PriceUpdateConfig {
   return {
-    pythBaseUrl: config.pythBaseUrl,
     coingeckoBaseUrl: config.coingeckoBaseUrl,
+    coingeckoApiKey: config.coingeckoApiKey,
+    kucoinBaseUrl: config.kucoinBaseUrl,
+    gateioBaseUrl: config.gateioBaseUrl,
     caviarnineBaseUrl: config.caviarnineBaseUrl,
     astrolescentBaseUrl: config.astrolescentBaseUrl,
     timeoutMs: config.timeoutMs,
-    maxPriceAgeSec: config.maxPriceAgeSec,
   }
 }
 
 export function getEnabledPriceSourcePlugins(config: PriceUpdateRunnerConfig): EnabledPriceSourcePlugins {
   return {
-    pyth: !config.disablePyth,
-    caviarnine: !config.disableCaviarNine,
     coingecko: !config.disableCoinGecko,
+    kucoin: !config.disableKucoin,
+    gateio: !config.disableGateio,
+    caviarnine: !config.disableCaviarNine,
     astrolescent: !config.disableAstrolescent,
   }
 }

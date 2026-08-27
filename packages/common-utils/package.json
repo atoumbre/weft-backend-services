@@ -16,18 +16,18 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsup"
-  },
   "typesVersions": {
     "*": {
       "logger": [
         "./dist/logger.d.ts"
       ]
     }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup"
   },
   "dependencies": {
     "@aws-sdk/client-ssm": "^3.958.0",

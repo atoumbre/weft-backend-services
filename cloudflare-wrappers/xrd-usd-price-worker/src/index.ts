@@ -1,7 +1,7 @@
 /**
  * Cloudflare Worker that serves a cached XRD/USD quote.
  *
- * CoinGecko is the primary source; KuCoin XRD-USDT is the fallback.
+ * CoinGecko is the primary source; KuCoin then Gate.io XRD-USDT are fallbacks.
  * Quotes are stored in KV for CACHE_TTL_SEC (default 5 minutes).
  */
 import type { ILogger, LogLevel } from '@local-packages/common-utils/logger'
@@ -16,11 +16,13 @@ interface KVNamespace {
 interface Env {
   COINGECKO_BASE_URL: string
   KUCOIN_BASE_URL: string
+  GATEIO_BASE_URL: string
   PRICE_FETCH_TIMEOUT_MS: string
   CACHE_TTL_SEC?: string
   LOG_LEVEL?: string
   DISABLE_COINGECKO?: string
   DISABLE_KUCOIN?: string
+  DISABLE_GATEIO?: string
   COINGECKO_API_KEY?: string
   XRD_USD_CACHE: KVNamespace
 }
@@ -132,9 +134,10 @@ function errorMessage(error: unknown): string {
 function readConfig(env: Env) {
   const coingeckoBaseUrl = env.COINGECKO_BASE_URL?.trim()
   const kucoinBaseUrl = env.KUCOIN_BASE_URL?.trim()
+  const gateioBaseUrl = env.GATEIO_BASE_URL?.trim()
   const timeoutMs = Number(env.PRICE_FETCH_TIMEOUT_MS)
 
-  if (!coingeckoBaseUrl || !kucoinBaseUrl || !Number.isFinite(timeoutMs)) {
+  if (!coingeckoBaseUrl || !kucoinBaseUrl || !gateioBaseUrl || !Number.isFinite(timeoutMs)) {
     throw Object.assign(new Error('Missing required Cloudflare bindings for XRD/USD price'), {
       step: 'readConfig',
     })
@@ -144,9 +147,11 @@ function readConfig(env: Env) {
     coingeckoBaseUrl,
     coingeckoApiKey: env.COINGECKO_API_KEY?.trim() || undefined,
     kucoinBaseUrl,
+    gateioBaseUrl,
     timeoutMs,
     disableCoinGecko: isTrueFlag(env.DISABLE_COINGECKO),
     disableKucoin: isTrueFlag(env.DISABLE_KUCOIN),
+    disableGateio: isTrueFlag(env.DISABLE_GATEIO),
   }
 }
 

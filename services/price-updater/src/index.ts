@@ -19,7 +19,7 @@ export type {
 } from './execution'
 
 // Plugin exports
-export { AstrolescentPlugin, CaviarNinePlugin, CoinGeckoPlugin, KucoinPlugin, PluginRegistry, PythPlugin } from './plugins'
+export { AstrolescentPlugin, CaviarNinePlugin, CoinGeckoPlugin, GateioPlugin, KucoinPlugin, PluginRegistry } from './plugins'
 export type {
   ILogger,
   PluginFetchOptions,

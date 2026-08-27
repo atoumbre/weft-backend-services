@@ -61,6 +61,7 @@ function createEnv(kv: MemoryKv, overrides: Record<string, string | undefined> =
   return {
     COINGECKO_BASE_URL: 'https://api.coingecko.com',
     KUCOIN_BASE_URL: 'https://api.kucoin.com',
+    GATEIO_BASE_URL: 'https://api.gateio.ws',
     PRICE_FETCH_TIMEOUT_MS: '5000',
     CACHE_TTL_SEC: '300',
     LOG_LEVEL: 'error',
@@ -134,6 +135,10 @@ describe('xrd-usd-price-worker', () => {
     expect(body.price).toBe('0.00092')
     expect(body.expiresAtUnixMs).toBeGreaterThan(Date.now())
     expect(fetchXrdUsdPrice).toHaveBeenCalledTimes(1)
+    expect(fetchXrdUsdPrice.mock.calls[0]?.[0]).toMatchObject({
+      gateioBaseUrl: 'https://api.gateio.ws',
+      disableGateio: false,
+    })
     expect(kv.lastPutOptions?.expirationTtl).toBe(300)
     expect(kv.store.has('xrd-usd')).toBe(true)
   })
@@ -218,5 +223,14 @@ describe('xrd-usd-price-worker', () => {
     await worker.fetch(request('/xrd-usd'), createEnv(kv, { CACHE_TTL_SEC: '120' }))
 
     expect(kv.lastPutOptions?.expirationTtl).toBe(120)
+  })
+
+  it('passes DISABLE_GATEIO through to fetchXrdUsdPrice', async () => {
+    const kv = createMemoryKv()
+    await worker.fetch(request('/xrd-usd'), createEnv(kv, { DISABLE_GATEIO: 'true' }))
+
+    expect(fetchXrdUsdPrice.mock.calls[0]?.[0]).toMatchObject({
+      disableGateio: true,
+    })
   })
 })

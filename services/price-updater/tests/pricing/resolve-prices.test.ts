@@ -3,32 +3,13 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { executePriceUpdate } from '../../src/pricing'
 
-const mockPythResponse = {
-  parsed: [
-    {
-      id: '0x816c6604beb161d3ad9c3b584f06c682e6299516165d756a68c7660b073b7072',
-      price: {
-        price: '45000000',
-        expo: -8,
-        publish_time: Math.floor(Date.now() / 1000) - 10,
-      },
-    },
-    {
-      id: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
-      price: {
-        price: '100000000',
-        expo: -8,
-        publish_time: Math.floor(Date.now() / 1000) - 5,
-      },
-    },
-  ],
-}
-
 const mockCoinGeckoResponse = {
   'radix': { usd: 0.45 },
   'tether': { usd: 1.0 },
   'usd-coin': { usd: 0.9995 },
   'ethereum': { usd: 3500 },
+  'bitcoin': { usd: 65000 },
+  'solana': { usd: 150 },
 }
 
 const silentLogger = {
@@ -40,14 +21,26 @@ const silentLogger = {
 }
 
 const config = {
-  pythBaseUrl: 'https://hermes.pyth.network',
   coingeckoBaseUrl: 'https://api.coingecko.com',
+  kucoinBaseUrl: 'https://api.kucoin.com',
+  gateioBaseUrl: 'https://api.gateio.ws',
   caviarnineBaseUrl: 'https://api.caviarnine.com',
   astrolescentBaseUrl: 'https://api.astrolescent.com/partner/test/prices',
   timeoutMs: 5000,
 }
 
 let originalFetch: typeof globalThis.fetch
+
+function kucoinTicker(price: string) {
+  return new Response(JSON.stringify({
+    code: '200000',
+    data: { price, time: Date.now() },
+  }))
+}
+
+function gateioTicker(currencyPair: string, last: string) {
+  return new Response(JSON.stringify([{ currency_pair: currencyPair, last }]))
+}
 
 describe('executePriceUpdate', () => {
   beforeEach(() => {
@@ -60,11 +53,14 @@ describe('executePriceUpdate', () => {
 
   it('should successfully fetch prices from mocked plugins', async () => {
     const fetchMock = mock((url: string) => {
-      if (url.includes('pyth.network') || url.includes('hermes.pyth.network')) {
-        return Promise.resolve(new Response(JSON.stringify(mockPythResponse)))
-      }
       if (url.includes('coingecko.com')) {
         return Promise.resolve(new Response(JSON.stringify(mockCoinGeckoResponse)))
+      }
+      if (url.includes('kucoin.com')) {
+        return Promise.resolve(kucoinTicker('0.45'))
+      }
+      if (url.includes('gateio.ws')) {
+        return Promise.resolve(gateioTicker('XRD_USDT', '0.45'))
       }
       if (url.includes('caviarnine.com')) {
         return Promise.resolve(new Response(JSON.stringify({ result: { status: 'Succeeded', details: { mid_price_buy_to_sell: '1.5' }, header: { unix_timestamp_ms: Date.now() } } })))
@@ -80,8 +76,9 @@ describe('executePriceUpdate', () => {
     const result = await executePriceUpdate({
       config,
       enabledPlugins: {
-        pyth: true,
         coingecko: true,
+        kucoin: false,
+        gateio: false,
         caviarnine: false,
         astrolescent: true,
       },
@@ -93,15 +90,22 @@ describe('executePriceUpdate', () => {
     expect(result.prices.length).toBeGreaterThan(0)
     expect(result.xrdUsdPrice).toBeDefined()
     expect(fetchMock).toHaveBeenCalled()
+
+    const calledUrls = fetchMock.mock.calls.map(call => String(call[0]))
+    expect(calledUrls.some(url => url.includes('coingecko.com'))).toBe(true)
+    expect(calledUrls.every(url => !url.includes('pyth'))).toBe(true)
   })
 
   it('should handle API failures gracefully with fallback', async () => {
     const fetchMock = mock((url: string) => {
-      if (url.includes('pyth.network') || url.includes('hermes.pyth.network')) {
-        return Promise.reject(new Error('Pyth API Error'))
-      }
       if (url.includes('coingecko.com')) {
-        return Promise.resolve(new Response(JSON.stringify(mockCoinGeckoResponse)))
+        return Promise.reject(new Error('CoinGecko API Error'))
+      }
+      if (url.includes('kucoin.com')) {
+        return Promise.resolve(kucoinTicker('1.0'))
+      }
+      if (url.includes('gateio.ws')) {
+        return Promise.resolve(gateioTicker('XRD_USDT', '1.0'))
       }
       if (url.includes('caviarnine.com')) {
         return Promise.resolve(new Response(JSON.stringify({ result: { status: 'Succeeded', details: { mid_price_buy_to_sell: '1.5' }, header: { unix_timestamp_ms: Date.now() } } })))
@@ -117,8 +121,9 @@ describe('executePriceUpdate', () => {
     const result = await executePriceUpdate({
       config,
       enabledPlugins: {
-        pyth: true,
         coingecko: true,
+        kucoin: true,
+        gateio: false,
         caviarnine: false,
         astrolescent: false,
       },
@@ -131,7 +136,7 @@ describe('executePriceUpdate', () => {
     const nonFixedPrices = result.prices.filter(price => price.source !== 'fixed')
     expect(nonFixedPrices.length).toBeGreaterThan(0)
     nonFixedPrices.forEach((price) => {
-      expect(['coingecko', 'caviarnine', 'astrolescent']).toContain(price.source)
+      expect(['coingecko', 'kucoin', 'gateio', 'caviarnine', 'astrolescent']).toContain(price.source)
     })
   })
 
@@ -148,8 +153,9 @@ describe('executePriceUpdate', () => {
     const result = await executePriceUpdate({
       config,
       enabledPlugins: {
-        pyth: false,
         coingecko: false,
+        kucoin: false,
+        gateio: false,
         caviarnine: true,
         astrolescent: false,
       },
@@ -174,8 +180,9 @@ describe('executePriceUpdate', () => {
     await expect(executePriceUpdate({
       config,
       enabledPlugins: {
-        pyth: false,
         coingecko: false,
+        kucoin: false,
+        gateio: false,
         caviarnine: false,
         astrolescent: false,
       },

@@ -5,20 +5,22 @@ import { ASSETS } from '../assets'
 import { AstrolescentPlugin } from '../plugins/astrolescent'
 import { CaviarNinePlugin } from '../plugins/caviarnine'
 import { CoinGeckoPlugin } from '../plugins/coingecko'
-import { PythPlugin } from '../plugins/pyth'
+import { GateioPlugin } from '../plugins/gateio'
+import { KucoinPlugin } from '../plugins/kucoin'
 import { PluginRegistry } from '../plugins/registry'
 import { normalizeUsdToXrd } from '../utils'
 
 const NORMALIZED_SCALE = 18
-const PLUGIN_PRIORITY = ['pyth', 'caviarnine', 'astrolescent', 'coingecko'] as const
+const PLUGIN_PRIORITY = ['coingecko', 'kucoin', 'gateio', 'caviarnine', 'astrolescent'] as const
 
 export type PriceSourcePluginName = typeof PLUGIN_PRIORITY[number]
 export type EnabledPriceSourcePlugins = Record<PriceSourcePluginName, boolean>
 
 const DEFAULT_ENABLED_PLUGINS: EnabledPriceSourcePlugins = {
-  pyth: true,
-  caviarnine: true,
   coingecko: true,
+  kucoin: true,
+  gateio: true,
+  caviarnine: true,
   astrolescent: true,
 }
 
@@ -58,12 +60,13 @@ export interface PriceResult {
 }
 
 export interface PriceUpdateConfig {
-  pythBaseUrl: string
   coingeckoBaseUrl: string
+  coingeckoApiKey?: string
+  kucoinBaseUrl: string
+  gateioBaseUrl: string
   caviarnineBaseUrl: string
   astrolescentBaseUrl: string
   timeoutMs: number
-  maxPriceAgeSec?: number
 }
 
 async function resolveAssetPrice(
@@ -257,31 +260,28 @@ export async function executePriceUpdate(
   const { config, logger: localLogger } = params
   const enabledPlugins = resolveEnabledPlugins(params.enabledPlugins)
 
-  if (
-    !enabledPlugins.pyth
-    && !enabledPlugins.caviarnine
-    && !enabledPlugins.coingecko
-    && !enabledPlugins.astrolescent
-  ) {
+  if (!PLUGIN_PRIORITY.some(pluginName => enabledPlugins[pluginName])) {
     localLogger.error({ event: 'oracle.price.failed', error: 'No plugins enabled' })
     throw new Error('No plugins enabled')
   }
 
   const options: PluginFetchOptions = {
     timeoutMs: config.timeoutMs,
-    maxPriceAgeSec: config.maxPriceAgeSec,
   }
 
   // Initialize plugin registry
   const registry = new PluginRegistry()
-  if (enabledPlugins.pyth) {
-    registry.register(new PythPlugin(config.pythBaseUrl))
+  if (enabledPlugins.coingecko) {
+    registry.register(new CoinGeckoPlugin(config.coingeckoBaseUrl, config.coingeckoApiKey))
+  }
+  if (enabledPlugins.kucoin) {
+    registry.register(new KucoinPlugin(config.kucoinBaseUrl))
+  }
+  if (enabledPlugins.gateio) {
+    registry.register(new GateioPlugin(config.gateioBaseUrl))
   }
   if (enabledPlugins.caviarnine) {
     registry.register(new CaviarNinePlugin(config.caviarnineBaseUrl))
-  }
-  if (enabledPlugins.coingecko) {
-    registry.register(new CoinGeckoPlugin(config.coingeckoBaseUrl))
   }
   if (enabledPlugins.astrolescent) {
     registry.register(new AstrolescentPlugin(config.astrolescentBaseUrl))

@@ -7,25 +7,9 @@ import { canonicalJson, createSignedPriceUpdate, hexToBytes } from '../../src/pr
 
 const testMnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 
-const mockPythResponse = {
-  parsed: [
-    {
-      id: '0x816c6604beb161d3ad9c3b584f06c682e6299516165d756a68c7660b073b7072',
-      price: {
-        price: '45000000',
-        expo: -8,
-        publish_time: Math.floor(Date.now() / 1000) - 10,
-      },
-    },
-    {
-      id: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
-      price: {
-        price: '100000000',
-        expo: -8,
-        publish_time: Math.floor(Date.now() / 1000) - 5,
-      },
-    },
-  ],
+const mockCoinGeckoResponse = {
+  radix: { usd: 0.45 },
+  tether: { usd: 1.0 },
 }
 
 const silentLogger = {
@@ -44,17 +28,18 @@ const config: PriceUpdateRunnerConfig = {
   mnemonic: testMnemonic,
   derivationIndex: 0,
   dryRun: true,
-  pythBaseUrl: 'https://hermes.pyth.network',
   coingeckoBaseUrl: 'https://api.coingecko.com',
+  kucoinBaseUrl: 'https://api.kucoin.com',
+  gateioBaseUrl: 'https://api.gateio.ws',
   caviarnineBaseUrl: 'https://api.caviarnine.com',
   astrolescentBaseUrl: 'https://api.astrolescent.com/partner/test/prices',
   timeoutMs: 5000,
   transactionFeeXrd: 1,
-  maxPriceAgeSec: 300,
   signedPayloadTtlSec: 60,
-  disablePyth: false,
+  disableKucoin: true,
+  disableGateio: true,
   disableCaviarNine: true,
-  disableCoinGecko: true,
+  disableCoinGecko: false,
   disableAstrolescent: true,
   logLevel: 'info',
 }
@@ -77,8 +62,8 @@ describe('signed price update producer', () => {
 
   it('returns a signed payload for the current prices', async () => {
     const fetchMock = mock((url: string) => {
-      if (url.includes('pyth.network') || url.includes('hermes.pyth.network')) {
-        return Promise.resolve(new Response(JSON.stringify(mockPythResponse)))
+      if (url.includes('coingecko.com')) {
+        return Promise.resolve(new Response(JSON.stringify(mockCoinGeckoResponse)))
       }
       return Promise.reject(new Error(`Unexpected URL: ${url}`))
     })
@@ -105,8 +90,8 @@ describe('signed price update producer', () => {
 
   it('verifies valid signatures and rejects tampered payloads', async () => {
     const fetchMock = mock((url: string) => {
-      if (url.includes('pyth.network') || url.includes('hermes.pyth.network')) {
-        return Promise.resolve(new Response(JSON.stringify(mockPythResponse)))
+      if (url.includes('coingecko.com')) {
+        return Promise.resolve(new Response(JSON.stringify(mockCoinGeckoResponse)))
       }
       return Promise.reject(new Error(`Unexpected URL: ${url}`))
     })
